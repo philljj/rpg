@@ -6,6 +6,7 @@
 #define MAX_PROCS 14
 #define MAX_ITEMS 10
 #define MAX_NAME  32
+#define ARMOR_HALF_POINT 100
 
 void
 print_fld(const char * what,
@@ -29,7 +30,7 @@ typedef enum {
     GLOVES    = 7,
     BOOTS     = 8,
     RING      = 9,
-    TRINKET   = 10 
+    TRINKET   = 10
 } slot_t;
 
 const char *
@@ -104,6 +105,7 @@ typedef struct {
     char    name[MAX_NAME + 1];
     size_t  hp;
     size_t  mp;
+    size_t  armor;
     size_t  level;
     size_t  xp;
     attr_t  base;
@@ -240,6 +242,7 @@ create_item(const char * name,
     size_t resist_lvl = 5;
     size_t power_lvl = 10;
     size_t procs_lvl = 20;
+    size_t shift_lvl = level + 1;
 
     memset(&item, 0, sizeof(item));
 
@@ -248,23 +251,23 @@ create_item(const char * name,
     item.slot = slot;
 
     if (level > attr_lvl) {
-        item.attr.sta = rand() % (level + 1);
-        item.attr.str = rand() % (level + 1);
-        item.attr.agi = rand() % (level + 1);
-        item.attr.wis = rand() % (level + 1);
-        item.attr.spr = rand() % (level + 1);
+        item.attr.sta = rand() % (shift_lvl - attr_lvl);
+        item.attr.str = rand() % (shift_lvl - attr_lvl);
+        item.attr.agi = rand() % (shift_lvl - attr_lvl);
+        item.attr.wis = rand() % (shift_lvl - attr_lvl);
+        item.attr.spr = rand() % (shift_lvl - attr_lvl);
     }
 
     if (level > resist_lvl) {
-        item.resist.fire = rand() % (level - resist_lvl);
-        item.resist.frost = rand() % (level - resist_lvl);
-        item.resist.shadow = rand() % (level - resist_lvl);
+        item.resist.fire = rand() % (shift_lvl - resist_lvl);
+        item.resist.frost = rand() % (shift_lvl - resist_lvl);
+        item.resist.shadow = rand() % (shift_lvl - resist_lvl);
     }
 
     if (level > power_lvl) {
-        item.power.fire = rand() % (level - power_lvl);
-        item.power.frost = rand() % (level - power_lvl);
-        item.power.shadow = rand() % (level - power_lvl);
+        item.power.fire = rand() % (shift_lvl - power_lvl);
+        item.power.frost = rand() % (shift_lvl - power_lvl);
+        item.power.shadow = rand() % (shift_lvl - power_lvl);
     }
 
     if (level > procs_lvl) {
@@ -387,6 +390,21 @@ spell_damage(hero_t * h)
     dmg = wis * mult;
 
     return dmg;
+}
+
+
+
+void
+attack_enemy(hero_t * h,
+             hero_t * enemy)
+{
+    float base_dmg = attack_damage(h);
+    float armor = h->armor;
+    float dmg_reduction = armor / (armor + ARMOR_HALF_POINT);
+    float dmg = base_dmg * dmg_reduction;
+
+
+    return;
 }
 
 
