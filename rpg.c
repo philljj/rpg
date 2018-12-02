@@ -5,7 +5,7 @@
 
 #define MAX_PROCS 14
 #define MAX_ITEMS 10
-#define MAX_NAME  32
+#define MAX_NAME_LEN  32
 #define ARMOR_HALF_POINT 100
 
 void
@@ -92,7 +92,7 @@ typedef struct {
 typedef void (*proc_t)(void);
 
 typedef struct {
-    char    name[MAX_NAME + 1];
+    char    name[MAX_NAME_LEN + 1];
     attr_t  attr;
     spell_t power;
     spell_t resist;
@@ -102,7 +102,7 @@ typedef struct {
 } item_t;
 
 typedef struct {
-    char    name[MAX_NAME + 1];
+    char    name[MAX_NAME_LEN + 1];
     size_t  hp;
     size_t  mp;
     size_t  armor;
@@ -171,7 +171,6 @@ roll_hero(void)
 
     h.items[PANTS] = create_item("worn pants", h.level, PANTS);
     h.have_item[PANTS] = 1;
-
 
     set_hp_mp(&h);
 
@@ -398,11 +397,23 @@ void
 attack_enemy(hero_t * h,
              hero_t * enemy)
 {
-    float base_dmg = attack_damage(h);
-    float armor = h->armor;
-    float dmg_reduction = armor / (armor + ARMOR_HALF_POINT);
-    float dmg = base_dmg * dmg_reduction;
+    // TODO: 1. need way to handle triggering of procs, e.g.
+    //          enemy thorns damages h, h drain_life heals
+    //          h for final_dmg, etc.
+    float armor = enemy->armor;
+    float base_dmg;
+    float final_dmg;
+    float dmg_reduction;
 
+    base_dmg = attack_damage(h);
+
+    dmg_reduction = armor / (armor + ARMOR_HALF_POINT);
+
+    final_dmg = base_dmg * dmg_reduction;
+
+    final_dmg = final_dmg < enemy->hp ? final_dmg : enemy->hp;
+
+    enemy->hp -= final_dmg;
 
     return;
 }
