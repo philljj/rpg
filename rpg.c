@@ -141,16 +141,35 @@ int
 main(int    argc,
      char * argv[])
 {
+    {
+        pid_t  pid;
+
+        pid = getpid();
+        srand(pid);
+    }
+
     hero_t hero = roll_hero("Tim the Enchanter");
     hero_t enemy = roll_hero("Rabid Skunk");
-    print_hero(&hero, 0);
-    print_hero(&enemy, 1);
-
-    attack_enemy(&hero, &enemy);
-
     print_hero(&hero, 1);
     print_hero(&enemy, 1);
 
+    for (;;) {
+        attack_enemy(&hero, &enemy);
+
+        if (!hero.hp || !enemy.hp) {
+            break;
+        }
+
+        sleep(1);
+
+        attack_enemy(&enemy, &hero);
+
+        if (!hero.hp || !enemy.hp) {
+            break;
+        }
+
+        sleep(1);
+    }
 
     return EXIT_SUCCESS;
 }
@@ -161,10 +180,6 @@ hero_t
 roll_hero(const char * name)
 {
     hero_t h;
-    pid_t  pid;
-
-    pid = getpid();
-    srand(pid);
 
     memset(&h, 0, sizeof(h));
 
@@ -463,8 +478,16 @@ attack_enemy(hero_t * hero,
         attack_barrier(thorn_dmg, hero);
     }
 
-    printf("%s attacked %s for %zu hp damage\n", hero->name,
+    printf("%s attacked %s for %zu hp damage\n\n", hero->name,
            enemy->name, hp_reduced);
+
+    if (!hero->hp && enemy->hp) {
+        printf("%s has defeated %s!\n\n", enemy->name, hero->name);
+    }
+    else if (hero->hp && !enemy->hp) {
+        printf("%s has defeated %s!\n\n", hero->name, enemy->name);
+    }
+
 
     return;
 }
