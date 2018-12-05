@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -89,7 +90,20 @@ typedef struct {
     size_t shadow;
 } spell_t;
 
-typedef void (*proc_t)(void);
+typedef enum {
+    NONE     = 0,
+    DRAIN_HP = 1,
+    DRAIN_MP = 2,
+    MP_BURN  = 3,
+    THORNS   = 4,
+    BARRIER  = 5,
+} proc_type_t;
+
+typedef struct {
+    proc_type_t type;  // proc_type_t
+    size_t      rate;  // Chance of triggering. 0 - 100
+    size_t      coeff; // Multipier. 0 - 100
+} proc_t;
 
 typedef struct {
     char    name[MAX_NAME_LEN + 1];
@@ -102,23 +116,19 @@ typedef struct {
 } item_t;
 
 typedef struct {
-    char    name[MAX_NAME_LEN + 1];
-    size_t  hp;
-    size_t  mp;
-    size_t  armor;
+    char    name[MAX_NAME_LEN + 1]; // There are Some who call me Tim.
+    size_t  hp;                     // Health Points.
+    size_t  mp;                     // Mana Points.
+    size_t  bp;                     // Barrier Points.
+    size_t  armor;                  // Mitigates physical damage.
     size_t  level;
     size_t  xp;
-    attr_t  base;
-    spell_t power;
-    spell_t resist;
+    attr_t  base;                   // Base attributes. Increases with level.
+    spell_t power;                  // Enhances spell damage given.
+    spell_t resist;                 // Resists spell damage received.
     item_t  items[MAX_ITEMS];
     size_t  have_item[MAX_ITEMS];
 } hero_t;
-
-void drain_life(void);
-void drain_mana(void);
-void restore_life(void);
-void restore_mana(void);
 
 void level_up(hero_t * h);
 void set_hp_mp(hero_t * h);
@@ -130,6 +140,9 @@ size_t spell_damage(hero_t * h);
 
 hero_t roll_hero(void);
 void print_hero(hero_t * h);
+
+void sum_procs(size_t * h_proc_sum, hero_t * h);
+size_t attack_barrier(size_t final_dmg, hero_t * enemy);
 
 
 
@@ -394,26 +407,55 @@ spell_damage(hero_t * h)
 
 
 void
-attack_enemy(hero_t * h,
+attack_enemy(hero_t * hero,
              hero_t * enemy)
 {
-    // TODO: 1. need way to handle triggering of procs, e.g.
-    //          enemy thorns damages h, h drain_life heals
-    //          h for final_dmg, etc.
-    float armor = enemy->armor;
-    float base_dmg;
-    float final_dmg;
-    float dmg_reduction;
+    float  armor = enemy->armor;
+    float  base_dmg;
+    float  mitigation;
+    size_t final_dmg;
+    size_t h_proc_sum[MAX_PROCS];
+    size_t e_proc_sum[MAX_PROCS];
 
-    base_dmg = attack_damage(h);
+    memset(h_proc_sum, 0, sizeof(h_proc_sum));
+    memset(e_proc_sum, 0, sizeof(e_proc_sum));
 
-    dmg_reduction = armor / (armor + ARMOR_HALF_POINT);
+    sum_procs(h_proc_sum, hero);
+    sum_procs(e_proc_sum, enemy);
 
-    final_dmg = base_dmg * dmg_reduction;
+    base_dmg = attack_damage(hero);
+    mitigation = armor / (armor + ARMOR_HALF_POINT);
+    final_dmg = (size_t) floor(base_dmg * mitigation);
 
-    final_dmg = final_dmg < enemy->hp ? final_dmg : enemy->hp;
+    if (!final_dmg) {
+        // Always at least 1 hp of damage.
+        ++final_dmg;
+    }
 
-    enemy->hp -= final_dmg;
+    // Reduce enemy barrier and health.
+    size_t hp_reduced = attack_barrier(final_dmg, enemy);
+
+    if (h_proc_sum[DRAIN_HP] && hp_reduced) {
+        // Needs a multiplier...
+        hero->hp += hp_reduced; 
+    }
+
+    if (h_proc_sum[DRAIN_MP] && hp_reduced) {
+        // Needs a multiplier...
+        hero->mp += hp_reduced < enemy->mp ? hp_reduced : enemy->mp;
+        enemy->mp -= hp_reduced < enemy->mp ? hp_reduced : enemy->mp;
+    }
+
+    if (h_proc_sum[MP_BURN] && hp_reduced) {
+        // Needs a multiplier...
+        enemy->mp -= hp_reduced < enemy->mp ? hp_reduced : enemy->mp;
+    }
+
+    if (e_proc_sum[THORNS]) {
+        // Reflect damage at hero.
+        size_t thorn_dmg = e_proc_sum[THORNS];
+        attack_barrier(thorn_dmg, hero);
+    }
 
     return;
 }
@@ -461,13 +503,76 @@ set_hp_mp(hero_t * h)
     return;
 }
 
-
 
 
 void
-drain_life(void)
+none(hero_t * h,
+     hero_t * enemy)
 {
     return;
 }
 
+
 
+void
+sum_procs(size_t * h_proc_sum,
+          hero_t * h)
+{
+    // Sum up all the procs by type, across
+    // the full inventory of items equipped.
+    for (size_t i = 0; i < MAX_ITEMS; ++i) {
+        if (!h->have_item[i]) {
+            // Nothing to do.
+            continue;
+        }
+
+        for (size_t p = 0; p < MAX_PROCS; ++p) {
+            proc_type_t p_type = h->items[i].procs[p].type;
+
+            if (!p_type) {
+                // Nothing to do.
+                continue;
+            }
+
+            size_t rate = h->items[i].procs[p].rate;
+            size_t trigger = rand() % 100;
+
+            if (rate > trigger) {
+                // Proc trigger threshold reached.
+                size_t  coeff = h->items[i].procs[p].coeff;
+                h_proc_sum[p_type] += coeff;
+            }
+        }
+    }
+
+    h->bp += h_proc_sum[BARRIER];
+
+    return;
+}
+
+
+
+size_t
+attack_barrier(size_t   final_dmg,
+               hero_t * enemy)
+{
+    size_t bp = enemy->bp;
+    size_t hp = enemy->hp;
+
+    size_t hp_reduced = 0;
+
+    if (bp) {
+        // Reduce the barrier first.
+        size_t dmg = final_dmg < bp ? final_dmg : bp;
+        final_dmg -= dmg;
+        enemy->bp -= dmg;
+    }
+
+    if (final_dmg) {
+        // Then the health pool with remaining dmg.
+        hp_reduced = final_dmg < hp ? final_dmg : enemy->hp;
+        enemy->hp -= hp_reduced;
+    }
+
+    return hp_reduced;
+}
