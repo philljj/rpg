@@ -9,17 +9,6 @@
 #define MAX_NAME_LEN  32
 #define ARMOR_HALF_POINT 100
 
-void
-print_fld(const char * what,
-          const size_t amnt)
-{
-    if (amnt) {
-        printf("%s %zu\n", what, amnt);
-    }
-
-    return;
-}
-
 typedef enum {
     MAIN_HAND = 0,
     OFF_HAND  = 1,
@@ -130,6 +119,7 @@ typedef struct {
     size_t  have_item[MAX_ITEMS];
 } hero_t;
 
+void print_fld(const char * what, const size_t amnt);
 void level_up(hero_t * h);
 void set_hp_mp(hero_t * h);
 
@@ -138,9 +128,10 @@ size_t equip_item(hero_t * hero, const item_t * item);
 size_t attack_damage(const hero_t * h);
 size_t spell_damage(hero_t * h);
 
-hero_t roll_hero(void);
-void print_hero(hero_t * h);
+hero_t roll_hero(const char * name);
+void print_hero(hero_t * h, const size_t concise);
 
+void attack_enemy(hero_t * hero, hero_t * enemy);
 void sum_procs(size_t * h_proc_sum, hero_t * h);
 size_t attack_barrier(size_t final_dmg, hero_t * enemy);
 
@@ -150,8 +141,16 @@ int
 main(int    argc,
      char * argv[])
 {
-    hero_t h = roll_hero();
-    print_hero(&h);
+    hero_t hero = roll_hero("Tim the Enchanter");
+    hero_t enemy = roll_hero("Rabid Skunk");
+    print_hero(&hero, 0);
+    print_hero(&enemy, 1);
+
+    attack_enemy(&hero, &enemy);
+
+    print_hero(&hero, 1);
+    print_hero(&enemy, 1);
+
 
     return EXIT_SUCCESS;
 }
@@ -159,7 +158,7 @@ main(int    argc,
 
 
 hero_t
-roll_hero(void)
+roll_hero(const char * name)
 {
     hero_t h;
     pid_t  pid;
@@ -177,7 +176,7 @@ roll_hero(void)
     h.base.wis = 6 + (rand() % 12);
     h.base.spr = 6 + (rand() % 12);
 
-    sprintf(h.name, "Tim the Enchanter");
+    strcpy(h.name, name);
 
     h.items[CHEST] = create_item("plain shirt", h.level, CHEST);
     h.have_item[CHEST] = 1;
@@ -193,7 +192,8 @@ roll_hero(void)
 
 
 void
-print_hero(hero_t * h)
+print_hero(hero_t *     h,
+           const size_t concise)
 {
     printf("name: %s\n", h->name);
     printf("\n");
@@ -201,6 +201,12 @@ print_hero(hero_t * h)
     printf("hp:    %zu\n", h->hp);
     printf("mp:    %zu\n", h->mp);
     printf("xp:    %zu\n", h->xp);
+
+    if (concise) {
+        printf("\n");
+        return;
+    }
+
     printf("\n");
     printf("base attributes\n");
     printf("  sta: %zu\n", h->base.sta);
@@ -424,7 +430,7 @@ attack_enemy(hero_t * hero,
     sum_procs(e_proc_sum, enemy);
 
     base_dmg = attack_damage(hero);
-    mitigation = armor / (armor + ARMOR_HALF_POINT);
+    mitigation = 1 - (armor / (armor + ARMOR_HALF_POINT));
     final_dmg = (size_t) floor(base_dmg * mitigation);
 
     if (!final_dmg) {
@@ -456,6 +462,9 @@ attack_enemy(hero_t * hero,
         size_t thorn_dmg = e_proc_sum[THORNS];
         attack_barrier(thorn_dmg, hero);
     }
+
+    printf("%s attacked %s for %zu hp damage\n", hero->name,
+           enemy->name, hp_reduced);
 
     return;
 }
@@ -576,3 +585,18 @@ attack_barrier(size_t   final_dmg,
 
     return hp_reduced;
 }
+
+
+
+void
+print_fld(const char * what,
+          const size_t amnt)
+{
+    if (amnt) {
+        printf("%s %zu\n", what, amnt);
+    }
+
+    return;
+}
+
+
