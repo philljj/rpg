@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #define MAX_PROCS 14
@@ -22,48 +23,6 @@ typedef enum {
     RING      = 9,
     TRINKET   = 10
 } slot_t;
-
-const char *
-slot_to_str(slot_t s)
-{
-    switch(s) {
-    case MAIN_HAND:
-        return "main hand";
-
-    case OFF_HAND:
-        return "off hand";
-
-    case TWO_HAND:
-        return "two hand";
-
-    case HELM:
-        return "helm";
-
-    case SHOULDERS:
-        return "shoulders";
-
-    case CHEST:
-        return "chest";
-
-    case PANTS:
-        return "pants";
-
-    case GLOVES:
-        return "gloves";
-
-    case BOOTS:
-        return "boots";
-
-    case RING:
-        return "ring";
-
-    case TRINKET:
-        return "trinket";
-
-    default:
-        return "NA";
-    }
-}
 
 typedef struct {
     size_t sta;
@@ -102,6 +61,7 @@ typedef struct {
     proc_t  procs[MAX_PROCS];
     slot_t  slot;
     size_t  is_weapon;
+    //size_t  armor; // TODO: armor?
 } item_t;
 
 typedef struct {
@@ -119,21 +79,25 @@ typedef struct {
     size_t  have_item[MAX_ITEMS];
 } hero_t;
 
+const char * slot_to_str(slot_t s);
 void print_fld(const char * what, const size_t amnt);
 void level_up(hero_t * h);
 void set_hp_mp(hero_t * h);
 
 item_t create_item(const char * name, const size_t level, const slot_t slot);
-size_t equip_item(hero_t * hero, const item_t * item);
-size_t attack_damage(const hero_t * h);
-size_t spell_damage(hero_t * h);
 
-hero_t roll_hero(const char * name);
+hero_t roll_hero(const char * name, const size_t lvl);
 void print_hero(hero_t * h, const size_t concise);
 
-void attack_enemy(hero_t * hero, hero_t * enemy);
-void sum_procs(size_t * h_proc_sum, hero_t * h);
+size_t get_melee_dmg(const hero_t * h);
+size_t get_spell_dmg(const hero_t * h);
+float  get_mitigation(const hero_t * h);
+float  get_resist(const hero_t * h);
+
 size_t attack_barrier(size_t final_dmg, hero_t * enemy);
+void sum_procs(size_t * h_proc_sum, hero_t * h);
+void attack_enemy(hero_t * hero, hero_t * enemy);
+void battle(hero_t * hero, hero_t * enemy);
 
 
 
@@ -142,33 +106,40 @@ main(int    argc,
      char * argv[])
 {
     {
-        pid_t  pid;
+        pid_t  pid = getpid();
+        time_t t = time(0);
 
-        pid = getpid();
-        srand(pid);
+        srand(pid * t);
     }
 
-    hero_t hero = roll_hero("Tim the Enchanter");
-    hero_t enemy = roll_hero("Rabid Skunk");
+    size_t h_ini_lvl = 5;
+    size_t e_ini_lvl = 1;
+
+    hero_t hero = roll_hero("Tim the Enchanter", h_ini_lvl);
     print_hero(&hero, 1);
-    print_hero(&enemy, 1);
+
+    size_t xp_req = 10;
 
     for (;;) {
-        attack_enemy(&hero, &enemy);
+        hero_t enemy = roll_hero("Rabid Skunk", e_ini_lvl);
+        print_hero(&enemy, 1);
 
-        if (!hero.hp || !enemy.hp) {
+        battle(&hero, &enemy);
+
+        if (!hero.hp) {
             break;
         }
 
-        sleep(1);
+        set_hp_mp(&hero);
 
-        attack_enemy(&enemy, &hero);
+        hero.xp++;
 
-        if (!hero.hp || !enemy.hp) {
-            break;
+        if (hero.xp >= xp_req) {
+            level_up(&hero);
+            xp_req++;
+
+            e_ini_lvl++;
         }
-
-        sleep(1);
     }
 
     return EXIT_SUCCESS;
@@ -177,13 +148,16 @@ main(int    argc,
 
 
 hero_t
-roll_hero(const char * name)
+roll_hero(const char * name,
+          const size_t lvl)
 {
     hero_t h;
 
     memset(&h, 0, sizeof(h));
 
-    h.level = 1;
+    if (lvl) {
+        h.level = lvl;
+    }
 
     h.base.sta = 6 + (rand() % 12);
     h.base.str = 6 + (rand() % 12);
@@ -269,6 +243,7 @@ create_item(const char * name,
             const size_t level,
             const slot_t slot)
 {
+    // TODO: should set armor?
     // This doesn't set is_weapon.
     item_t item;
     size_t attr_lvl = 0;
@@ -312,26 +287,55 @@ create_item(const char * name,
 
 
 
-size_t
-equip_item(hero_t *       hero,
-           const item_t * item)
+void
+level_up(hero_t * h)
 {
-    slot_t slot = item->slot;
+    ++(h->level);
+    ++(h->base.sta);
+    ++(h->base.str);
+    ++(h->base.agi);
+    ++(h->base.wis);
+    ++(h->base.spr);
 
-    if (hero->have_item[slot]) {
-        return 0;
-    }
+    h->xp = 0;
 
-    hero->items[slot] = *item;
-    hero->have_item[slot] = 1;
+    set_hp_mp(h);
 
-    return 1;
+    return;
 }
 
 
 
+void
+set_hp_mp(hero_t * h)
+{
+    // hp =  5 * stamina
+    // mp = 10 * wisdom
+    size_t stamina = h->base.sta;
+    size_t wisdom = h->base.wis;
+
+    for (size_t i = 0; i < MAX_ITEMS; ++i) {
+        if (!h->have_item[i]) {
+            // Nothing to do.
+            continue;
+        }
+
+        stamina += h->items[i].attr.sta;
+        wisdom += h->items[i].attr.wis;
+    }
+
+    h->hp =  5 * stamina;
+    h->mp = 10 * wisdom;
+
+    return;
+}
+
+
+
+
+
 size_t
-attack_damage(const hero_t * h)
+get_melee_dmg(const hero_t * h)
 {
     // Attack damage is
     //
@@ -399,7 +403,7 @@ attack_damage(const hero_t * h)
 
 
 size_t
-spell_damage(hero_t * h)
+get_spell_dmg(const hero_t * h)
 {
     // Spell damage (and spell healing) is
     //
@@ -427,11 +431,42 @@ spell_damage(hero_t * h)
 
 
 
+float
+get_mitigation(const hero_t * h)
+{
+    float  armor = h->armor;
+    float  mitigation;
+
+    mitigation = 1 - (armor / (armor + ARMOR_HALF_POINT));
+
+    // TODO: sum over armor bonuses from gear?
+    //       How will armor be calculated?
+
+    return mitigation;
+}
+
+
+
+float
+get_resist(const hero_t * h)
+{
+    float resist;
+
+    // TODO: how will this be calculated?
+
+    resist = 0;
+
+    return resist;
+}
+
+
+
 void
 attack_enemy(hero_t * hero,
              hero_t * enemy)
 {
-    float  armor = enemy->armor;
+    // TODO: 1. dodge chance from agility
+    //       2. melee crit chance from agility
     float  base_dmg;
     float  mitigation;
     size_t final_dmg;
@@ -444,8 +479,9 @@ attack_enemy(hero_t * hero,
     sum_procs(h_proc_sum, hero);
     sum_procs(e_proc_sum, enemy);
 
-    base_dmg = attack_damage(hero);
-    mitigation = 1 - (armor / (armor + ARMOR_HALF_POINT));
+    base_dmg = get_melee_dmg(hero);
+    mitigation = get_mitigation(enemy);
+
     final_dmg = (size_t) floor(base_dmg * mitigation);
 
     if (!final_dmg) {
@@ -474,6 +510,7 @@ attack_enemy(hero_t * hero,
 
     if (e_proc_sum[THORNS]) {
         // Reflect damage at hero.
+        // TODO: print thorn dmg.
         size_t thorn_dmg = e_proc_sum[THORNS];
         attack_barrier(thorn_dmg, hero);
     }
@@ -481,56 +518,39 @@ attack_enemy(hero_t * hero,
     printf("%s attacked %s for %zu hp damage\n\n", hero->name,
            enemy->name, hp_reduced);
 
+    return;
+}
+
+
+
+void
+battle(hero_t * hero,
+       hero_t * enemy)
+{
+    for (;;) {
+        attack_enemy(hero, enemy);
+
+        if (!hero->hp || !enemy->hp) {
+            break;
+        }
+
+        sleep(1);
+
+        attack_enemy(enemy, hero);
+
+        if (!hero->hp || !enemy->hp) {
+            break;
+        }
+
+        sleep(1);
+    }
+
     if (!hero->hp && enemy->hp) {
         printf("%s has defeated %s!\n\n", enemy->name, hero->name);
     }
     else if (hero->hp && !enemy->hp) {
         printf("%s has defeated %s!\n\n", hero->name, enemy->name);
     }
-
-
-    return;
-}
-
-
-
-void
-level_up(hero_t * h)
-{
-    ++(h->level);
-    ++(h->base.sta);
-    ++(h->base.str);
-    ++(h->base.agi);
-    ++(h->base.wis);
-    ++(h->base.spr);
-
-    h->xp = 0;
-
-    return;
-}
-
-
-
-void
-set_hp_mp(hero_t * h)
-{
-    // hp =  5 * stamina
-    // mp = 10 * wisdom
-    size_t stamina = h->base.sta;
-    size_t wisdom = h->base.wis;
-
-    for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (!h->have_item[i]) {
-            // Nothing to do.
-            continue;
-        }
-
-        stamina += h->items[i].attr.sta;
-        wisdom += h->items[i].attr.wis;
-    }
-
-    h->hp =  5 * stamina;
-    h->mp = 10 * wisdom;
 
     return;
 }
@@ -622,4 +642,46 @@ print_fld(const char * what,
     return;
 }
 
+
 
+const char *
+slot_to_str(slot_t s)
+{
+    switch(s) {
+    case MAIN_HAND:
+        return "main hand";
+
+    case OFF_HAND:
+        return "off hand";
+
+    case TWO_HAND:
+        return "two hand";
+
+    case HELM:
+        return "helm";
+
+    case SHOULDERS:
+        return "shoulders";
+
+    case CHEST:
+        return "chest";
+
+    case PANTS:
+        return "pants";
+
+    case GLOVES:
+        return "gloves";
+
+    case BOOTS:
+        return "boots";
+
+    case RING:
+        return "ring";
+
+    case TRINKET:
+        return "trinket";
+
+    default:
+        return "NA";
+    }
+}
