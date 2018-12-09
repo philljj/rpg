@@ -9,6 +9,7 @@
 #define MAX_ITEMS 10
 #define MAX_NAME_LEN  32
 #define ARMOR_HALF_POINT 100
+#define DODGE_HALF_POINT 100
 
 typedef enum {
     MAIN_HAND = 0,
@@ -64,46 +65,74 @@ typedef struct {
     //size_t  armor; // TODO: armor?
 } item_t;
 
-typedef struct {
+// TODO: different mob struct types? hero, dragon, undead, generic mob?
+//       this might be more complexity than worth it. would have to
+//       handle casting structs.
+
+// TODO:
+//       attack
+//       spell
+//       heal or defense
+
+// TODO: need way to track temporary buffs/debuffs.
+
+struct hero_t {
+    // Common fields.
     char    name[MAX_NAME_LEN + 1]; // There are Some who call me Tim.
+    size_t  level;
     size_t  hp;                     // Health Points.
     size_t  mp;                     // Mana Points.
     size_t  bp;                     // Barrier Points.
     size_t  armor;                  // Mitigates physical damage.
-    size_t  level;
-    size_t  xp;
     attr_t  base;                   // Base attributes. Increases with level.
     spell_t power;                  // Enhances spell damage given.
     spell_t resist;                 // Resists spell damage received.
+    void    (*attack)(struct hero_t *, struct hero_t *);
+    // hero specific fields.
+    size_t  xp;
     item_t  items[MAX_ITEMS];
     size_t  have_item[MAX_ITEMS];
-} hero_t;
+};
 
-const char * slot_to_str(slot_t s);
-void print_fld(const char * what, const size_t amnt);
-void level_up(hero_t * h);
-void set_hp_mp(hero_t * h);
+typedef struct hero_t hero_t;
 
-item_t create_item(const char * name, const size_t level, const slot_t slot);
+typedef enum {
+    HERO,
+    ANIMAL,
+    UNDEAD,
+    DRAGON
+} mob_t;
 
+// Basic mob gen functions.
+hero_t roll_mob(const char * name, const size_t lvl, const mob_t mob);
 hero_t roll_hero(const char * name, const size_t lvl);
-void print_hero(hero_t * h, const size_t concise);
-
-size_t get_melee_dmg(const hero_t * h);
+hero_t roll_dragon(const char * name, const size_t lvl);
+item_t create_item(const char * name, const size_t level, const slot_t slot);
+void   level_up(hero_t * h);
+void   set_hp_mp(hero_t * h);
+size_t get_max_hp(hero_t * h);
+size_t get_max_mp(hero_t * h);
+// Print functions.
+void         print_hero(hero_t * h, const size_t concise);
+void         print_fld(const char * what, const size_t amnt);
+const char * slot_to_str(slot_t s);
+// Combat functions.
+void   battle(hero_t * hero, hero_t * enemy);
+void   attack_enemy(hero_t * hero, hero_t * enemy);
+void   breath(hero_t * hero, hero_t * enemy);
+void   sum_procs(size_t * h_proc_sum, hero_t * h);
+float  get_melee_dmg(const hero_t * h);
 size_t get_spell_dmg(const hero_t * h);
 float  get_mitigation(const hero_t * h);
 float  get_resist(const hero_t * h);
-
+size_t get_dodge(const hero_t * h);
 size_t attack_barrier(size_t final_dmg, hero_t * enemy);
-void sum_procs(size_t * h_proc_sum, hero_t * h);
-void attack_enemy(hero_t * hero, hero_t * enemy);
-void battle(hero_t * hero, hero_t * enemy);
 
 
 
 int
-main(int    argc,
-     char * argv[])
+main(int    argc   __attribute__((unused)),
+     char * argv[] __attribute__((unused)))
 {
     {
         pid_t  pid = getpid();
@@ -113,16 +142,16 @@ main(int    argc,
     }
 
     size_t h_ini_lvl = 5;
-    size_t e_ini_lvl = 1;
+    size_t e_ini_lvl = 10;
 
     hero_t hero = roll_hero("Tim the Enchanter", h_ini_lvl);
-    print_hero(&hero, 1);
+    print_hero(&hero, 0);
 
     size_t xp_req = 10;
 
     for (;;) {
-        hero_t enemy = roll_hero("Rabid Skunk", e_ini_lvl);
-        print_hero(&enemy, 1);
+        hero_t enemy = roll_mob("ruby dragon", e_ini_lvl, DRAGON);
+        print_hero(&enemy, 0);
 
         battle(&hero, &enemy);
 
@@ -148,6 +177,25 @@ main(int    argc,
 
 
 hero_t
+roll_mob(const char * name,
+         const size_t lvl,
+         const mob_t  mob)
+{
+    switch (mob) {
+    case HERO:
+        return roll_hero(name, lvl);
+    case ANIMAL:
+        return roll_hero(name, lvl);
+    case DRAGON:
+        return roll_dragon(name, lvl);
+    default:
+        return roll_dragon(name, lvl);
+    }
+}
+
+
+
+hero_t
 roll_hero(const char * name,
           const size_t lvl)
 {
@@ -155,9 +203,9 @@ roll_hero(const char * name,
 
     memset(&h, 0, sizeof(h));
 
-    if (lvl) {
-        h.level = lvl;
-    }
+    h.attack = attack_enemy;
+
+    h.level = lvl ? lvl : 1;
 
     h.base.sta = 6 + (rand() % 12);
     h.base.str = 6 + (rand() % 12);
@@ -165,7 +213,9 @@ roll_hero(const char * name,
     h.base.wis = 6 + (rand() % 12);
     h.base.spr = 6 + (rand() % 12);
 
-    strcpy(h.name, name);
+    if (name && *name) {
+        strcpy(h.name, name);
+    }
 
     h.items[CHEST] = create_item("plain shirt", h.level, CHEST);
     h.have_item[CHEST] = 1;
@@ -177,6 +227,39 @@ roll_hero(const char * name,
 
     return h;
 }
+
+
+
+hero_t
+roll_dragon(const char * name,
+            const size_t lvl)
+{
+    hero_t h;
+
+    memset(&h, 0, sizeof(h));
+
+    h.attack = breath;
+
+    h.level = lvl ? lvl : 1;
+
+    size_t base = 6 + h.level;
+    size_t var = 12 + h.level;
+
+    h.base.sta = base + (rand() % var);
+    h.base.str = base + (rand() % var);
+    h.base.agi = base + (rand() % var);
+    h.base.wis = base + (rand() % var);
+    h.base.spr = base + (rand() % var);
+
+    if (name && *name) {
+        strcpy(h.name, name);
+    }
+
+    set_hp_mp(&h);
+
+    return h;
+}
+
 
 
 
@@ -330,11 +413,49 @@ set_hp_mp(hero_t * h)
     return;
 }
 
+
 
+size_t
+get_max_hp(hero_t * h)
+{
+    // hp =  5 * stamina
+    size_t stamina = h->base.sta;
+
+    for (size_t i = 0; i < MAX_ITEMS; ++i) {
+        if (!h->have_item[i]) {
+            // Nothing to do.
+            continue;
+        }
+
+        stamina += h->items[i].attr.sta;
+    }
+
+    return (5 * stamina);
+}
 
 
 
 size_t
+get_max_mp(hero_t * h)
+{
+    // mp = 10 * wisdom
+    size_t wisdom = h->base.wis;
+
+    for (size_t i = 0; i < MAX_ITEMS; ++i) {
+        if (!h->have_item[i]) {
+            // Nothing to do.
+            continue;
+        }
+
+        wisdom += h->items[i].attr.wis;
+    }
+
+    return (10 * wisdom);
+}
+
+
+
+float
 get_melee_dmg(const hero_t * h)
 {
     // Attack damage is
@@ -347,7 +468,7 @@ get_melee_dmg(const hero_t * h)
     //   1 handed = 0.8 (per hand)
     //   unarmed  = 0.5 (per hand)
 
-    size_t dmg = 0;
+    float  dmg = 0;
     float  mult = 0;
     size_t str = 0;
 
@@ -380,24 +501,27 @@ get_melee_dmg(const hero_t * h)
         switch (h->items[i].slot) {
         case MAIN_HAND:
             mult += 0.8;
-        break;
+            break;
 
         case OFF_HAND:
             mult += 0.8;
-        break;
+            break;
 
         case TWO_HAND:
             mult += 2.0;
-        break;
+            break;
 
         default:
-        break;
+            break;
         }
     }
 
     dmg = str * mult;
 
-    return dmg;
+    // Add a smear to dmg, to give it some randomness.
+    float smear = 0.01 * (80 + (rand () % 41));
+
+    return dmg * smear;
 }
 
 
@@ -410,7 +534,6 @@ get_spell_dmg(const hero_t * h)
     //   dmg = (total wisdom) * (spell multiplier)
     //
     // where the spell multiplier is 3.
-
     size_t dmg = 0;
     size_t wis = 0;
     size_t mult = 3;
@@ -448,7 +571,7 @@ get_mitigation(const hero_t * h)
 
 
 float
-get_resist(const hero_t * h)
+get_resist(const hero_t * h __attribute__((unused)))
 {
     float resist;
 
@@ -461,14 +584,49 @@ get_resist(const hero_t * h)
 
 
 
+size_t
+get_dodge(const hero_t * h)
+{
+    float  agi = 0;
+    size_t dodge = 0;
+
+    agi += h->base.agi;
+
+    for (size_t i = 0; i < MAX_ITEMS; ++i) {
+        if (!h->have_item[i]) {
+            continue;
+        }
+
+        agi += h->items[i].attr.agi;
+    }
+
+    dodge = (size_t) floor(100 * agi / (agi + DODGE_HALF_POINT));
+
+    return dodge;
+}
+
+
+
 void
 attack_enemy(hero_t * hero,
              hero_t * enemy)
 {
-    // TODO: 1. dodge chance from agility
-    //       2. melee crit chance from agility
+    {
+        // Calculate dodge first. If attack misses, nothing left to do.
+        size_t dodge = get_dodge(enemy);
+        size_t trigger = rand() % 100;
+
+        if (dodge > trigger) {
+            printf("%s attacked %s and missed\n\n", hero->name,
+                   enemy->name);
+
+            return;
+        }
+    }
+
     float  base_dmg;
     float  mitigation;
+    size_t is_crit = 0;
     size_t final_dmg;
     size_t h_proc_sum[MAX_PROCS];
     size_t e_proc_sum[MAX_PROCS];
@@ -480,6 +638,18 @@ attack_enemy(hero_t * hero,
     sum_procs(e_proc_sum, enemy);
 
     base_dmg = get_melee_dmg(hero);
+
+    {
+        // Calculate crit. Reusing dodge for now.
+        size_t crit = get_dodge(hero);
+        size_t trigger = rand() % 100;
+
+        if (crit > trigger) {
+            is_crit = 1;
+            base_dmg = base_dmg * 1.5;
+        }
+    }
+
     mitigation = get_mitigation(enemy);
 
     final_dmg = (size_t) floor(base_dmg * mitigation);
@@ -494,7 +664,7 @@ attack_enemy(hero_t * hero,
 
     if (h_proc_sum[DRAIN_HP] && hp_reduced) {
         // Needs a multiplier...
-        hero->hp += hp_reduced; 
+        hero->hp += hp_reduced;
     }
 
     if (h_proc_sum[DRAIN_MP] && hp_reduced) {
@@ -515,11 +685,55 @@ attack_enemy(hero_t * hero,
         attack_barrier(thorn_dmg, hero);
     }
 
-    printf("%s attacked %s for %zu hp damage\n\n", hero->name,
-           enemy->name, hp_reduced);
+    if (is_crit) {
+        printf("%s crit %s for %zu hp damage\n\n", hero->name,
+               enemy->name, hp_reduced);
+    }
+    else {
+        printf("%s attacked %s for %zu hp damage\n\n", hero->name,
+               enemy->name, hp_reduced);
+    }
 
     return;
 }
+
+
+
+void
+breath(hero_t * hero,
+       hero_t * enemy)
+{
+    // Breath cannot be dodged or resisted.
+    float  base_dmg;
+    size_t is_crit = 0;
+
+    base_dmg = 2 * (hero->base.str + hero->base.wis);
+
+    {
+        // Calculate crit. Reusing dodge for now.
+        size_t crit = get_dodge(hero);
+        size_t trigger = rand() % 100;
+
+        if (crit > trigger) {
+            is_crit = 1;
+            base_dmg = base_dmg * 1.5;
+        }
+    }
+
+    size_t hp_reduced = attack_barrier(base_dmg, enemy);
+
+    if (is_crit) {
+        printf("%s crit %s for %zu hp damage\n\n", hero->name,
+               enemy->name, hp_reduced);
+    }
+    else {
+        printf("%s attacked %s for %zu hp damage\n\n", hero->name,
+               enemy->name, hp_reduced);
+    }
+
+    return;
+}
+
 
 
 
@@ -528,7 +742,7 @@ battle(hero_t * hero,
        hero_t * enemy)
 {
     for (;;) {
-        attack_enemy(hero, enemy);
+        hero->attack(hero, enemy);
 
         if (!hero->hp || !enemy->hp) {
             break;
@@ -536,7 +750,7 @@ battle(hero_t * hero,
 
         sleep(1);
 
-        attack_enemy(enemy, hero);
+        enemy->attack(enemy, hero);
 
         if (!hero->hp || !enemy->hp) {
             break;
@@ -558,8 +772,8 @@ battle(hero_t * hero,
 
 
 void
-none(hero_t * h,
-     hero_t * enemy)
+none(hero_t * h     __attribute__((unused)),
+     hero_t * enemy __attribute__((unused)))
 {
     return;
 }
