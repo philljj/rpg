@@ -31,7 +31,7 @@ typedef struct {
     size_t agi;
     size_t wis;
     size_t spr;
-} attr_t;
+} stats_t;
 
 typedef struct {
     size_t fire;
@@ -56,7 +56,7 @@ typedef struct {
 
 typedef struct {
     char    name[MAX_NAME_LEN + 1];
-    attr_t  attr;
+    stats_t attr;
     spell_t power;
     spell_t resist;
     proc_t  procs[MAX_PROCS];
@@ -84,10 +84,14 @@ struct hero_t {
     size_t  mp;                     // Mana Points.
     size_t  bp;                     // Barrier Points.
     size_t  armor;                  // Mitigates physical damage.
-    attr_t  base;                   // Base attributes. Increases with level.
+    stats_t base;                   // Base attributes. Increases with level.
     spell_t power;                  // Enhances spell damage given.
     spell_t resist;                 // Resists spell damage received.
+    // Need way to handle cooldowns for these...
     void    (*attack)(struct hero_t *, struct hero_t *);
+    size_t  (*spell)(struct hero_t *, struct hero_t *);
+    void    (*defend)(struct hero_t *);
+    size_t  (*heal)(struct hero_t *);
     // hero specific fields.
     size_t  xp;
     item_t  items[MAX_ITEMS];
@@ -98,6 +102,7 @@ typedef struct hero_t hero_t;
 
 typedef enum {
     HERO,
+    HUMANOID,
     ANIMAL,
     UNDEAD,
     DRAGON
@@ -117,9 +122,13 @@ void         print_hero(hero_t * h, const size_t concise);
 void         print_fld(const char * what, const size_t amnt);
 const char * slot_to_str(slot_t s);
 // Combat functions.
+void   decision_loop(hero_t * hero, hero_t * enemy);
 void   battle(hero_t * hero, hero_t * enemy);
+// Abilities.
 void   attack_enemy(hero_t * hero, hero_t * enemy);
 void   breath(hero_t * hero, hero_t * enemy);
+size_t cure(hero_t * h);
+
 void   sum_procs(size_t * h_proc_sum, hero_t * h);
 float  get_melee_dmg(const hero_t * h);
 size_t get_spell_dmg(const hero_t * h);
@@ -127,6 +136,11 @@ float  get_mitigation(const hero_t * h);
 float  get_resist(const hero_t * h);
 size_t get_dodge(const hero_t * h);
 size_t attack_barrier(size_t final_dmg, hero_t * enemy);
+void   regen(hero_t * h);
+size_t restore_hp(hero_t * h, const size_t amnt);
+size_t restore_mp(hero_t * h, const size_t amnt);
+size_t spend_hp(hero_t * h, const size_t amnt);
+size_t spend_mp(hero_t * h, const size_t amnt);
 
 
 
@@ -141,17 +155,17 @@ main(int    argc   __attribute__((unused)),
         srand(pid * t);
     }
 
-    size_t h_ini_lvl = 5;
+    size_t h_ini_lvl = 50;
     size_t e_ini_lvl = 10;
 
     hero_t hero = roll_hero("Tim the Enchanter", h_ini_lvl);
-    print_hero(&hero, 0);
+    print_hero(&hero, 1);
 
     size_t xp_req = 10;
 
     for (;;) {
         hero_t enemy = roll_mob("ruby dragon", e_ini_lvl, DRAGON);
-        print_hero(&enemy, 0);
+        print_hero(&enemy, 1);
 
         battle(&hero, &enemy);
 
@@ -189,7 +203,7 @@ roll_mob(const char * name,
     case DRAGON:
         return roll_dragon(name, lvl);
     default:
-        return roll_dragon(name, lvl);
+        return roll_hero(name, lvl);
     }
 }
 
@@ -204,6 +218,7 @@ roll_hero(const char * name,
     memset(&h, 0, sizeof(h));
 
     h.attack = attack_enemy;
+    h.heal = cure;
 
     h.level = lvl ? lvl : 1;
 
@@ -617,7 +632,7 @@ attack_enemy(hero_t * hero,
         size_t trigger = rand() % 100;
 
         if (dodge > trigger) {
-            printf("%s attacked %s and missed\n\n", hero->name,
+            printf("%s attacked %s and missed\n", hero->name,
                    enemy->name);
 
             return;
@@ -685,14 +700,123 @@ attack_enemy(hero_t * hero,
         attack_barrier(thorn_dmg, hero);
     }
 
+    // TODO: print overkill?
+
     if (is_crit) {
-        printf("%s crit %s for %zu hp damage\n\n", hero->name,
+        printf("%s crit %s for %zu hp damage\n", hero->name,
                enemy->name, hp_reduced);
     }
     else {
-        printf("%s attacked %s for %zu hp damage\n\n", hero->name,
+        printf("%s attacked %s for %zu hp damage\n", hero->name,
                enemy->name, hp_reduced);
     }
+
+    return;
+}
+
+
+
+size_t
+cure(hero_t * h)
+{
+    const char * what = "cure";
+    const size_t cost = 16;
+
+    if (!spend_mp(h, cost)) {
+        return 0;
+    }
+
+    size_t n = restore_hp(h, get_spell_dmg(h));
+
+    printf("%s healed %s for %zu hp\n", what, h->name, n);
+
+    return n;
+}
+     
+
+
+size_t
+restore_hp(hero_t *     h,
+           const size_t amnt)
+{
+    size_t max_hp = get_max_hp(h);
+    size_t old_hp = h->hp;
+    size_t hp = h->hp + amnt;
+
+    h->hp = hp < max_hp ? hp : max_hp;
+
+    return (h->hp - old_hp);
+}
+
+
+
+size_t
+restore_mp(hero_t *     h,
+           const size_t amnt)
+{
+    size_t max_mp = get_max_mp(h);
+    size_t old_mp = h->mp;
+    size_t mp = h->mp + amnt;
+
+    h->mp = mp < max_mp ? mp : max_mp;
+
+    return (h->mp - old_mp);
+}
+
+
+
+size_t
+spend_hp(hero_t *     h,
+         const size_t amnt)
+{
+    size_t hp = h->hp;
+
+    h->hp = hp < amnt ? hp : hp - amnt;
+
+    return (h->hp < hp);
+}
+
+
+size_t
+spend_mp(hero_t *     h,
+         const size_t amnt)
+{
+    size_t mp = h->mp;
+
+    h->mp = mp < amnt ? mp : mp - amnt;
+
+    return (h->mp < mp);
+}
+
+
+
+void
+regen(hero_t * h)
+{
+    // Spirit regen is 0.5 of spirit every 2 rounds.
+    float  spr = h->base.spr;
+    size_t regen_amnt = 0;
+
+    for (size_t i = 0; i < MAX_ITEMS; ++i) {
+        if (!h->have_item[i]) {
+            continue;
+        }
+
+        spr += h->items[i].attr.spr;
+    }
+
+    if (!spr) {
+        // Nothing to do.
+        return;
+    }
+
+    regen_amnt = (size_t) floor(0.5 * spr);
+
+    size_t hp_gain = restore_hp(h, regen_amnt);
+    size_t mp_gain = restore_mp(h, regen_amnt);
+
+    printf("%s regenerated %zu hp, %zu mp\n", h->name, hp_gain,
+           mp_gain);
 
     return;
 }
@@ -704,6 +828,7 @@ breath(hero_t * hero,
        hero_t * enemy)
 {
     // Breath cannot be dodged or resisted.
+    // Breath penetrates barriers.
     float  base_dmg;
     size_t is_crit = 0;
 
@@ -723,11 +848,11 @@ breath(hero_t * hero,
     size_t hp_reduced = attack_barrier(base_dmg, enemy);
 
     if (is_crit) {
-        printf("%s crit %s for %zu hp damage\n\n", hero->name,
+        printf("%s crit %s for %zu hp damage\n", hero->name,
                enemy->name, hp_reduced);
     }
     else {
-        printf("%s attacked %s for %zu hp damage\n\n", hero->name,
+        printf("%s attacked %s for %zu hp damage\n", hero->name,
                enemy->name, hp_reduced);
     }
 
@@ -741,8 +866,12 @@ void
 battle(hero_t * hero,
        hero_t * enemy)
 {
+    size_t regen_ctr = 0;
+
     for (;;) {
-        hero->attack(hero, enemy);
+        ++regen_ctr;
+
+        decision_loop(hero, enemy);
 
         if (!hero->hp || !enemy->hp) {
             break;
@@ -756,7 +885,19 @@ battle(hero_t * hero,
             break;
         }
 
+        printf("\n");
+
         sleep(1);
+
+        if (regen_ctr == 2) {
+            regen(hero);
+            regen(enemy);
+            printf("\n");
+
+            regen_ctr = 0;
+
+            sleep(1);
+        }
     }
 
     if (!hero->hp && enemy->hp) {
@@ -764,6 +905,43 @@ battle(hero_t * hero,
     }
     else if (hero->hp && !enemy->hp) {
         printf("%s has defeated %s!\n\n", hero->name, enemy->name);
+    }
+
+    return;
+}
+
+
+
+void
+decision_loop(hero_t * hero,
+              hero_t * enemy)
+{
+    size_t done = 0;
+
+    for (;;) {
+        char act_var = (char) fgetc(stdin);
+
+        switch (act_var) {
+        case 'a':
+            hero->attack(hero, enemy);
+            done = 1;
+            break;
+
+        case 'h':
+            if (hero->heal(hero)) {
+                done = 1;
+            }
+
+            break;
+
+        default:
+            printf("error: invalid input %c\n", act_var);
+            break;
+        }
+
+        while (fgetc(stdin) != '\n');
+
+        if (done) { break; }
     }
 
     return;
