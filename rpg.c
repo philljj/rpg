@@ -37,7 +37,17 @@ typedef struct {
     size_t fire;
     size_t frost;
     size_t shadow;
+    size_t non_elemental;
+    size_t restoration;
 } spell_t;
+
+typedef enum {
+    FIRE,
+    FROST,
+    SHADOW,
+    NON_ELEM,
+    RESTORATION
+} element_t;
 
 typedef enum {
     NONE     = 0,
@@ -89,7 +99,7 @@ struct hero_t {
     spell_t resist;                 // Resists spell damage received.
     // Need way to handle cooldowns for these...
     void    (*attack)(struct hero_t *, struct hero_t *);
-    size_t  (*spell)(struct hero_t *, struct hero_t *);
+    size_t  (*spell)(struct hero_t *, struct hero_t *, const element_t element);
     void    (*defend)(struct hero_t *);
     size_t  (*heal)(struct hero_t *);
     // hero specific fields.
@@ -118,20 +128,27 @@ void   set_hp_mp(hero_t * h);
 size_t get_max_hp(hero_t * h);
 size_t get_max_mp(hero_t * h);
 // Print functions.
-void         print_hero(hero_t * h, const size_t concise);
+void         print_hero(hero_t * h, const size_t verbosity);
 void         print_fld(const char * what, const size_t amnt);
 const char * slot_to_str(slot_t s);
+const char * elem_to_str(const element_t elem);
+
 // Combat functions.
 void   decision_loop(hero_t * hero, hero_t * enemy);
+size_t choose_spell(hero_t * hero, hero_t * enemy);
 void   battle(hero_t * hero, hero_t * enemy);
 // Abilities.
 void   attack_enemy(hero_t * hero, hero_t * enemy);
 void   breath(hero_t * hero, hero_t * enemy);
+size_t spell_enemy(hero_t * hero, hero_t * enemy, const element_t element);
 size_t cure(hero_t * h);
 
 void   sum_procs(size_t * h_proc_sum, hero_t * h);
 float  get_melee_dmg(const hero_t * h);
-size_t get_spell_dmg(const hero_t * h);
+float  get_spell_dmg(const hero_t * h, const element_t element);
+float  get_spell_res(const hero_t * h, const element_t element);
+float  get_elem_pow(const spell_t * power, const element_t element);
+float  get_elem_res(const spell_t * power, const element_t element);
 float  get_mitigation(const hero_t * h);
 float  get_resist(const hero_t * h);
 size_t get_dodge(const hero_t * h);
@@ -155,16 +172,18 @@ main(int    argc   __attribute__((unused)),
         srand(pid * t);
     }
 
-    size_t h_ini_lvl = 50;
-    size_t e_ini_lvl = 10;
+    size_t h_ini_lvl = 5;
+    size_t e_ini_lvl = 1;
 
     hero_t hero = roll_hero("Tim the Enchanter", h_ini_lvl);
-    print_hero(&hero, 1);
+    print_hero(&hero, 5);
 
-    size_t xp_req = 10;
+    //size_t xp_req = 10;
+    size_t xp_req = 1;
 
     for (;;) {
-        hero_t enemy = roll_mob("ruby dragon", e_ini_lvl, DRAGON);
+        //hero_t enemy = roll_mob("ruby dragon", e_ini_lvl, DRAGON);
+        hero_t enemy = roll_mob("peon", e_ini_lvl, HUMANOID);
         print_hero(&enemy, 1);
 
         battle(&hero, &enemy);
@@ -218,6 +237,7 @@ roll_hero(const char * name,
     memset(&h, 0, sizeof(h));
 
     h.attack = attack_enemy;
+    h.spell = spell_enemy;
     h.heal = cure;
 
     h.level = lvl ? lvl : 1;
@@ -280,7 +300,7 @@ roll_dragon(const char * name,
 
 void
 print_hero(hero_t *     h,
-           const size_t concise)
+           const size_t verbosity)
 {
     printf("name: %s\n", h->name);
     printf("\n");
@@ -289,7 +309,7 @@ print_hero(hero_t *     h,
     printf("mp:    %zu\n", h->mp);
     printf("xp:    %zu\n", h->xp);
 
-    if (concise) {
+    if (verbosity <= 1) {
         printf("\n");
         return;
     }
@@ -301,6 +321,12 @@ print_hero(hero_t *     h,
     printf("  agi: %zu\n", h->base.agi);
     printf("  wis: %zu\n", h->base.wis);
     printf("  spr: %zu\n", h->base.spr);
+
+    if (verbosity == 2) {
+        printf("\n");
+        return;
+    }
+
     printf("\n");
     printf("spell power\n");
     printf("  fire:   %zu\n", h->power.fire);
@@ -312,6 +338,12 @@ print_hero(hero_t *     h,
     printf("  frost:  %zu\n", h->resist.frost);
     printf("  shadow: %zu\n", h->resist.shadow);
     printf("\n");
+
+    if (verbosity == 3) {
+        printf("\n");
+        return;
+    }
+
     printf("equipment\n");
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
@@ -395,9 +427,63 @@ level_up(hero_t * h)
     ++(h->base.wis);
     ++(h->base.spr);
 
+    {
+        // Spend a bonus point.
+        printf("%s leveled up!\n", h->name);
+        printf("Choose a stat for your bonus point:\n");
+        printf("   1. stamina:  increases max hp\n");
+        printf("   2. strength: increases melee damage\n");
+        printf("   3. agility:  increases dodge and crit chance\n");
+        printf("   4. wisdom:   increases max mp and spell damage\n");
+        printf("   5. spirit:   increases hp and mp regen rates\n");
+
+        size_t done = 0;
+
+        for (;;) {
+            char choice = (char) fgetc(stdin);
+
+            switch (choice) {
+            case '1':
+                ++(h->base.sta);
+                done = 1;
+                break;
+
+            case '2':
+                ++(h->base.str);
+                done = 1;
+                break;
+
+            case '3':
+                ++(h->base.agi);
+                done = 1;
+                break;
+
+            case '4':
+                ++(h->base.wis);
+                done = 1;
+                break;
+
+            case '5':
+                ++(h->base.spr);
+                done = 1;
+                break;
+
+            default:
+                printf("error: invalid input %c\n", choice);
+                break;
+            }
+
+            while (fgetc(stdin) != '\n');
+
+            if (done) { break; }
+        }
+    }
+
     h->xp = 0;
 
     set_hp_mp(h);
+
+    print_hero(h, 2);
 
     return;
 }
@@ -541,18 +627,25 @@ get_melee_dmg(const hero_t * h)
 
 
 
-size_t
-get_spell_dmg(const hero_t * h)
+float
+get_spell_dmg(const hero_t *  h,
+              const element_t element)
 {
     // Spell damage (and spell healing) is
     //
     //   dmg = (total wisdom) * (spell multiplier)
     //
     // where the spell multiplier is 3.
-    size_t dmg = 0;
-    size_t wis = 0;
-    size_t mult = 3;
+    float dmg = 0;
+    float wis = 0;
+    float mult = 3;
+    float spell_power = 0;
 
+    // Get unit's innate elemental power and wisdom.
+    spell_power += get_elem_pow(&h->power, element);
+    wis += h->base.wis;
+
+    // Then get elemental power and wisdom from gear.
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
         if (!h->have_item[i]) {
             // Nothing to calculate.
@@ -560,11 +653,86 @@ get_spell_dmg(const hero_t * h)
         }
 
         wis += h->items[i].attr.wis;
+
+        spell_power += get_elem_pow(&h->items[i].power, element);
     }
 
-    dmg = wis * mult;
+    dmg += wis * mult;
+    dmg += spell_power;
 
-    return dmg;
+    // Add a smear to dmg, to give it some randomness.
+    float smear = 0.01 * (80 + (rand () % 41));
+
+    return dmg * smear;
+}
+
+
+
+float
+get_elem_pow(const spell_t * power,
+             const element_t element)
+{
+    float  spell_power = 0;
+
+    switch (element) {
+    case FIRE:
+        spell_power += power->fire;
+        spell_power += 0.5 * power->non_elemental;
+        break;
+    case FROST:
+        spell_power += power->frost;
+        spell_power += 0.5 * power->non_elemental;
+        break;
+    case SHADOW:
+        spell_power += power->shadow;
+        spell_power += 0.5 * power->non_elemental;
+        break;
+    case NON_ELEM:
+        spell_power += power->non_elemental;
+        spell_power += 0.5 * power->fire;
+        spell_power += 0.5 * power->frost;
+        spell_power += 0.5 * power->shadow;
+        break;
+    case RESTORATION:
+        spell_power += power->restoration;
+        break;
+    }
+
+    return spell_power;
+}
+
+
+
+float
+get_elem_res(const spell_t * resist,
+             const element_t element)
+{
+    float  spell_power = 0;
+
+    switch (element) {
+    case FIRE:
+        spell_power += resist->fire;
+        spell_power += 0.5 * resist->non_elemental;
+        break;
+    case FROST:
+        spell_power += resist->frost;
+        spell_power += 0.5 * resist->non_elemental;
+        break;
+    case SHADOW:
+        spell_power += resist->shadow;
+        spell_power += 0.5 * resist->non_elemental;
+        break;
+    case NON_ELEM:
+        spell_power += resist->non_elemental;
+        spell_power += 0.5 * resist->fire;
+        spell_power += 0.5 * resist->frost;
+        spell_power += 0.5 * resist->shadow;
+        break;
+    case RESTORATION:
+        break;
+    }
+
+    return spell_power;
 }
 
 
@@ -586,15 +754,26 @@ get_mitigation(const hero_t * h)
 
 
 float
-get_resist(const hero_t * h __attribute__((unused)))
+get_spell_res(const hero_t *  h,
+              const element_t element)
 {
-    float resist;
+    // Get unit's innate elemental resist.
+    float res = get_elem_pow(&h->resist, element);
+    float mitigation;
 
-    // TODO: how will this be calculated?
+    // Then get elemental resist and wisdom from gear.
+    for (size_t i = 0; i < MAX_ITEMS; ++i) {
+        if (!h->have_item[i]) {
+            // Nothing to calculate.
+            continue;
+        }
 
-    resist = 0;
+        res += get_elem_pow(&h->items[i].resist, element);
+    }
 
-    return resist;
+    mitigation = 1 - (res / (res + ARMOR_HALF_POINT));
+
+    return mitigation;
 }
 
 
@@ -618,6 +797,29 @@ get_dodge(const hero_t * h)
     dodge = (size_t) floor(100 * agi / (agi + DODGE_HALF_POINT));
 
     return dodge;
+}
+
+
+
+size_t
+get_spell_crit(const hero_t * h)
+{
+    float  wis = 0;
+    size_t crit = 0;
+
+    wis += h->base.wis;
+
+    for (size_t i = 0; i < MAX_ITEMS; ++i) {
+        if (!h->have_item[i]) {
+            continue;
+        }
+
+        wis += h->items[i].attr.wis;
+    }
+
+    crit = (size_t) floor(100 * wis / (wis + DODGE_HALF_POINT));
+
+    return crit;
 }
 
 
@@ -717,6 +919,75 @@ attack_enemy(hero_t * hero,
 
 
 size_t
+spell_enemy(hero_t *        hero,
+            hero_t *        enemy,
+            const element_t element)
+{
+    size_t cost = 0;
+
+    switch (element) {
+        case NON_ELEM:
+            cost = 32;
+            break;
+
+        default:
+            cost = 16;
+            break;
+    }
+
+    if (!spend_mp(hero, cost)) {
+        return 0;
+    }
+
+    // Spells ignore armor and all procs.
+    // Spell resistance functions as armor mitigation.
+    float        base_dmg;
+    float        resist;
+    size_t       is_crit = 0;
+    size_t       final_dmg;
+    const char * what = elem_to_str(element);
+
+    base_dmg = get_spell_dmg(hero, element);
+
+    {
+        // Calculate crit. Reusing dodge for now.
+        size_t crit = get_dodge(hero);
+        size_t trigger = rand() % 100;
+
+        if (crit > trigger) {
+            is_crit = 1;
+            base_dmg = base_dmg * 1.5;
+        }
+    }
+
+    resist = get_spell_res(enemy, element);
+
+    final_dmg = (size_t) floor(base_dmg * resist);
+
+    if (!final_dmg) {
+        // Always at least 1 hp of damage.
+        ++final_dmg;
+    }
+
+    // TODO: print overkill?
+
+    size_t hp_reduced = final_dmg < enemy->hp ? final_dmg : enemy->hp;
+
+    enemy->hp -= hp_reduced;
+
+    if (is_crit) {
+        printf("%s crit for %zu hp damage\n", what, hp_reduced);
+    }
+    else {
+        printf("%s hit for %zu hp damage\n", what, hp_reduced);
+    }
+
+    return hp_reduced;
+}
+
+
+
+size_t
 cure(hero_t * h)
 {
     const char * what = "cure";
@@ -726,13 +997,13 @@ cure(hero_t * h)
         return 0;
     }
 
-    size_t n = restore_hp(h, get_spell_dmg(h));
+    size_t n = restore_hp(h, get_spell_dmg(h, RESTORATION));
 
     printf("%s healed %s for %zu hp\n", what, h->name, n);
 
     return n;
 }
-     
+
 
 
 size_t
@@ -921,15 +1192,32 @@ decision_loop(hero_t * hero,
     for (;;) {
         char act_var = (char) fgetc(stdin);
 
+        while (fgetc(stdin) != '\n');
+        printf("\x1b[1A");
+        printf("\r");
+
         switch (act_var) {
         case 'a':
             hero->attack(hero, enemy);
             done = 1;
             break;
 
+        case 's':
+            if (choose_spell(hero, enemy)) {
+                done = 1;
+            }
+            else {
+                printf("%s is out of mana\n", hero->name);
+            }
+
+            break;
+
         case 'h':
             if (hero->heal(hero)) {
                 done = 1;
+            }
+            else {
+                printf("%s is out of mana\n", hero->name);
             }
 
             break;
@@ -939,8 +1227,6 @@ decision_loop(hero_t * hero,
             break;
         }
 
-        while (fgetc(stdin) != '\n');
-
         if (done) { break; }
     }
 
@@ -949,11 +1235,55 @@ decision_loop(hero_t * hero,
 
 
 
-void
-none(hero_t * h     __attribute__((unused)),
-     hero_t * enemy __attribute__((unused)))
+size_t
+choose_spell(hero_t * hero,
+             hero_t * enemy)
 {
-    return;
+    printf("  choose spell:\n");
+    printf("    f: fire\n");
+    printf("    i: ice\n");
+    printf("    s: shadow\n");
+    printf("    u: non-elemental\n");
+    size_t done = 0;
+    size_t status;
+
+    for (;;) {
+        char act_var = (char) fgetc(stdin);
+
+        while (fgetc(stdin) != '\n');
+        printf("\x1b[1A");
+        printf("\r");
+
+        switch (act_var) {
+        case 'f':
+            status = hero->spell(hero, enemy, FIRE);
+            done = 1;
+            break;
+
+        case 'i':
+            status = hero->spell(hero, enemy, FROST);
+            done = 1;
+            break;
+
+        case 's':
+            status = hero->spell(hero, enemy, SHADOW);
+            done = 1;
+            break;
+
+        case 'u':
+            status = hero->spell(hero, enemy, NON_ELEM);
+            done = 1;
+            break;
+
+        default:
+            printf("error: invalid input %c\n", act_var);
+            break;
+        }
+
+        if (done) { break; }
+    }
+
+    return status;
 }
 
 
@@ -1075,5 +1405,24 @@ slot_to_str(slot_t s)
 
     default:
         return "NA";
+    }
+}
+
+
+
+const char *
+elem_to_str(const element_t elem)
+{
+    switch (elem) {
+        case FIRE:
+            return "fire";
+        case FROST:
+            return "frost";
+        case SHADOW:
+            return "shadow";
+        case NON_ELEM:
+            return "non-elemental";
+        case RESTORATION:
+            return "restoration";
     }
 }
