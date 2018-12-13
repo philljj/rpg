@@ -5,11 +5,22 @@
 #include <time.h>
 #include <unistd.h>
 
-#define MAX_PROCS 14
-#define MAX_ITEMS 10
-#define MAX_NAME_LEN  32
-#define ARMOR_HALF_POINT 100
-#define DODGE_HALF_POINT 100
+#define MAX_PROCS (14)
+#define MAX_ITEMS (10)
+#define MAX_NAME_LEN  (32)
+#define ARMOR_HALF_POINT (100)
+#define DODGE_HALF_POINT (100)
+
+#define PORTRAIT_ROW (1)
+#define PORTRAIT_COL (4)
+#define BATTLE_TXT_ROW (8)
+#define BATTLE_TXT_COL (4)
+#define MAX_BATTLE_TXT_LINES (32)
+
+#define SLEEP_INTERVAL (500000)
+
+static size_t row = 0;
+static size_t col = 0;
 
 typedef enum {
     MAIN_HAND = 0,
@@ -132,6 +143,16 @@ void         print_hero(hero_t * h, const size_t verbosity);
 void         print_fld(const char * what, const size_t amnt);
 const char * slot_to_str(slot_t s);
 const char * elem_to_str(const element_t elem);
+void         print_portrait(hero_t * h, const size_t i, const size_t j);
+void         move_cursor(const size_t i, const size_t j);
+void         reset_cursor(void);
+void         set_cursor(void);
+void         del_line(void);
+void         del_eof(void);
+void         print_act_prompt(void);
+void         clear_act_prompt(void);
+void         print_spell_prompt(void);
+void         clear_spell_prompt(void);
 
 // Combat functions.
 void   decision_loop(hero_t * hero, hero_t * enemy);
@@ -159,6 +180,22 @@ size_t restore_mp(hero_t * h, const size_t amnt);
 size_t spend_hp(hero_t * h, const size_t amnt);
 size_t spend_mp(hero_t * h, const size_t amnt);
 
+static const char * action_prompt = "\n"
+                                    "  choose action:\n"
+                                    "    a: attack\n"
+                                    "    s: spell\n"
+                                    "    d: defend\n"
+                                    "    h: heal\n"
+                                    "    q: health potion\n"
+                                    "    m: mana potion\n";
+
+static const char * spell_prompt = "\n"
+                                   "  choose spell:\n"
+                                   "    f: fire\n"
+                                   "    i: ice\n"
+                                   "    s: shadow\n"
+                                   "    u: non-elemental\n";
+
 
 
 int
@@ -170,13 +207,17 @@ main(int    argc   __attribute__((unused)),
         time_t t = time(0);
 
         srand(pid * t);
+
+        printf("\033[2J");
+        printf("\033[1;1H");
     }
 
     size_t h_ini_lvl = 5;
     size_t e_ini_lvl = 1;
 
     hero_t hero = roll_hero("Tim the Enchanter", h_ini_lvl);
-    print_hero(&hero, 5);
+
+    print_portrait(&hero, PORTRAIT_ROW, PORTRAIT_COL);
 
     //size_t xp_req = 10;
     size_t xp_req = 1;
@@ -184,7 +225,7 @@ main(int    argc   __attribute__((unused)),
     for (;;) {
         //hero_t enemy = roll_mob("ruby dragon", e_ini_lvl, DRAGON);
         hero_t enemy = roll_mob("peon", e_ini_lvl, HUMANOID);
-        print_hero(&enemy, 1);
+        print_portrait(&enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
         battle(&hero, &enemy);
 
@@ -296,75 +337,6 @@ roll_dragon(const char * name,
 }
 
 
-
-
-void
-print_hero(hero_t *     h,
-           const size_t verbosity)
-{
-    printf("name: %s\n", h->name);
-    printf("\n");
-    printf("level: %zu\n", h->level);
-    printf("hp:    %zu\n", h->hp);
-    printf("mp:    %zu\n", h->mp);
-    printf("xp:    %zu\n", h->xp);
-
-    if (verbosity <= 1) {
-        printf("\n");
-        return;
-    }
-
-    printf("\n");
-    printf("base attributes\n");
-    printf("  sta: %zu\n", h->base.sta);
-    printf("  str: %zu\n", h->base.str);
-    printf("  agi: %zu\n", h->base.agi);
-    printf("  wis: %zu\n", h->base.wis);
-    printf("  spr: %zu\n", h->base.spr);
-
-    if (verbosity == 2) {
-        printf("\n");
-        return;
-    }
-
-    printf("\n");
-    printf("spell power\n");
-    printf("  fire:   %zu\n", h->power.fire);
-    printf("  frost:  %zu\n", h->power.frost);
-    printf("  shadow: %zu\n", h->power.shadow);
-    printf("\n");
-    printf("spell resist\n");
-    printf("  fire:   %zu\n", h->resist.fire);
-    printf("  frost:  %zu\n", h->resist.frost);
-    printf("  shadow: %zu\n", h->resist.shadow);
-    printf("\n");
-
-    if (verbosity == 3) {
-        printf("\n");
-        return;
-    }
-
-    printf("equipment\n");
-
-    for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (!h->have_item[i]) {
-            continue;
-        }
-
-        printf("  %s: %s\n", slot_to_str(i), h->items[i].name);
-        print_fld("    sta:", h->items[i].attr.sta);
-        print_fld("    str:", h->items[i].attr.str);
-        print_fld("    agi:", h->items[i].attr.agi);
-        print_fld("    wis:", h->items[i].attr.wis);
-        print_fld("    spr:", h->items[i].attr.spr);
-
-    }
-
-    printf("\n");
-
-
-    return;
-}
 
 
 
@@ -427,6 +399,9 @@ level_up(hero_t * h)
     ++(h->base.wis);
     ++(h->base.spr);
 
+    reset_cursor();
+    del_eof();
+
     {
         // Spend a bonus point.
         printf("%s leveled up!\n", h->name);
@@ -483,7 +458,10 @@ level_up(hero_t * h)
 
     set_hp_mp(h);
 
-    print_hero(h, 2);
+    print_portrait(h, PORTRAIT_ROW, PORTRAIT_COL);
+
+    reset_cursor();
+    del_eof();
 
     return;
 }
@@ -1143,33 +1121,50 @@ battle(hero_t * hero,
         ++regen_ctr;
 
         decision_loop(hero, enemy);
+        ++row;
+        print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
+        print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
         if (!hero->hp || !enemy->hp) {
             break;
         }
 
-        sleep(1);
+        usleep(SLEEP_INTERVAL);
 
         enemy->attack(enemy, hero);
+        ++row;
+        print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
+        print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
         if (!hero->hp || !enemy->hp) {
             break;
         }
 
-        printf("\n");
-
-        sleep(1);
+        usleep(SLEEP_INTERVAL);
 
         if (regen_ctr == 2) {
             regen(hero);
             regen(enemy);
-            printf("\n");
+
+            ++row;
+            ++row;
+            print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
+            print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
             regen_ctr = 0;
 
-            sleep(1);
+            usleep(SLEEP_INTERVAL);
         }
+
+        if (row >= MAX_BATTLE_TXT_LINES) {
+            row = 0;
+        }
+
+        set_cursor();
+        del_eof();
     }
+
+    row = 0;
 
     if (!hero->hp && enemy->hp) {
         printf("%s has defeated %s!\n\n", enemy->name, hero->name);
@@ -1177,6 +1172,8 @@ battle(hero_t * hero,
     else if (hero->hp && !enemy->hp) {
         printf("%s has defeated %s!\n\n", hero->name, enemy->name);
     }
+
+    usleep(SLEEP_INTERVAL);
 
     return;
 }
@@ -1190,11 +1187,12 @@ decision_loop(hero_t * hero,
     size_t done = 0;
 
     for (;;) {
-        char act_var = (char) fgetc(stdin);
+        print_act_prompt();
 
+        char act_var = (char) fgetc(stdin);
         while (fgetc(stdin) != '\n');
-        printf("\x1b[1A");
-        printf("\r");
+
+        clear_act_prompt();
 
         switch (act_var) {
         case 'a':
@@ -1239,20 +1237,16 @@ size_t
 choose_spell(hero_t * hero,
              hero_t * enemy)
 {
-    printf("  choose spell:\n");
-    printf("    f: fire\n");
-    printf("    i: ice\n");
-    printf("    s: shadow\n");
-    printf("    u: non-elemental\n");
     size_t done = 0;
     size_t status;
 
     for (;;) {
-        char act_var = (char) fgetc(stdin);
+        print_spell_prompt();
 
+        char act_var = (char) fgetc(stdin);
         while (fgetc(stdin) != '\n');
-        printf("\x1b[1A");
-        printf("\r");
+
+        clear_spell_prompt();
 
         switch (act_var) {
         case 'f':
@@ -1354,6 +1348,75 @@ attack_barrier(size_t   final_dmg,
 
 
 void
+print_hero(hero_t *     h,
+           const size_t verbosity)
+{
+    printf("name: %s\n", h->name);
+    printf("level: %zu\n", h->level);
+    printf("hp:    %zu / %zu\n", h->hp, get_max_hp(h));
+    printf("mp:    %zu / %zu\n", h->mp, get_max_mp(h));
+    printf("xp:    %zu\n", h->xp);
+
+    if (verbosity <= 1) {
+        printf("\n");
+        return;
+    }
+
+    printf("\n");
+    printf("base attributes\n");
+    printf("  sta: %zu\n", h->base.sta);
+    printf("  str: %zu\n", h->base.str);
+    printf("  agi: %zu\n", h->base.agi);
+    printf("  wis: %zu\n", h->base.wis);
+    printf("  spr: %zu\n", h->base.spr);
+
+    if (verbosity == 2) {
+        printf("\n");
+        return;
+    }
+
+    printf("\n");
+    printf("spell power\n");
+    printf("  fire:   %zu\n", h->power.fire);
+    printf("  frost:  %zu\n", h->power.frost);
+    printf("  shadow: %zu\n", h->power.shadow);
+    printf("\n");
+    printf("spell resist\n");
+    printf("  fire:   %zu\n", h->resist.fire);
+    printf("  frost:  %zu\n", h->resist.frost);
+    printf("  shadow: %zu\n", h->resist.shadow);
+    printf("\n");
+
+    if (verbosity == 3) {
+        printf("\n");
+        return;
+    }
+
+    printf("equipment\n");
+
+    for (size_t i = 0; i < MAX_ITEMS; ++i) {
+        if (!h->have_item[i]) {
+            continue;
+        }
+
+        printf("  %s: %s\n", slot_to_str(i), h->items[i].name);
+        print_fld("    sta:", h->items[i].attr.sta);
+        print_fld("    str:", h->items[i].attr.str);
+        print_fld("    agi:", h->items[i].attr.agi);
+        print_fld("    wis:", h->items[i].attr.wis);
+        print_fld("    spr:", h->items[i].attr.spr);
+
+    }
+
+    printf("\n");
+
+
+    return;
+}
+
+
+
+void
 print_fld(const char * what,
           const size_t amnt)
 {
@@ -1425,4 +1488,141 @@ elem_to_str(const element_t elem)
         case RESTORATION:
             return "restoration";
     }
+}
+
+
+
+void
+print_portrait(hero_t *     h,
+               const size_t i,
+               const size_t j)
+{
+    // i: row
+    // j: column
+    printf("\033[%zu;%zuH ", i, j);
+    printf("\033[%zu;%zuH name: %s", i + 1, j, h->name);
+    printf("\033[%zu;%zuH level: %zu", i + 2, j, h->level);
+    printf("\033[%zu;%zuH hp:    %zu / %zu    ", i + 3, j, h->hp, get_max_hp(h));
+    printf("\033[%zu;%zuH mp:    %zu / %zu    ", i + 4, j, h->mp, get_max_mp(h));
+
+    set_cursor();
+
+    return;
+}
+
+
+
+void
+move_cursor(const size_t i,
+            const size_t j)
+{
+    // Move to i'th row, j'th column.
+    printf("\033[%zu;%zuH ", i, j);
+
+    return;
+}
+
+
+
+void
+reset_cursor(void)
+{
+    // Reset to battle text starting position.
+    printf("\033[%d;%dH ", BATTLE_TXT_ROW, BATTLE_TXT_ROW);
+
+    return;
+}
+
+
+
+
+void
+set_cursor(void)
+{
+    // Set cursor to current offset from battle text starting position.
+    printf("\033[%zu;%zuH\r", BATTLE_TXT_ROW + row, BATTLE_TXT_ROW + col);
+
+    return;
+}
+
+
+
+void
+del_line(void)
+{
+    printf("\33[2K");
+    return;
+}
+
+
+
+void
+del_eof(void)
+{
+    printf("\r\033[J");
+    return;
+}
+
+
+
+void
+print_act_prompt(void)
+{
+    printf("%s", action_prompt);
+
+    return;
+}
+
+
+
+void
+clear_act_prompt(void)
+{
+    const char * ptr = action_prompt;
+
+    while (*ptr) {
+        if (*ptr == '\n') {
+            printf("\r\033[A");
+        }
+
+        ++ptr;
+    }
+
+    // Not sure why this one extra needed.
+    printf("\r\033[A");
+    del_eof();
+
+    return;
+}
+
+
+
+void
+print_spell_prompt(void)
+{
+    printf("%s", spell_prompt);
+
+    return;
+}
+
+
+
+void
+clear_spell_prompt(void)
+{
+    const char * ptr = spell_prompt;
+
+    while (*ptr) {
+        if (*ptr == '\n') {
+            printf("\r\033[A");
+        }
+
+        ++ptr;
+    }
+
+    // Not sure why this one extra needed.
+    printf("\r\033[A");
+    del_eof();
+
+    return;
 }
