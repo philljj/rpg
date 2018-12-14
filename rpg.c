@@ -13,14 +13,14 @@
 
 #define PORTRAIT_ROW (1)
 #define PORTRAIT_COL (4)
-#define BATTLE_TXT_ROW (8)
+#define BATTLE_TXT_ROW (13)
 #define BATTLE_TXT_COL (4)
 #define MAX_BATTLE_TXT_LINES (32)
 
 #define SLEEP_INTERVAL (500000)
 
-static size_t row = 0;
-static size_t col = 0;
+static size_t row_ = 0;
+static size_t col_ = 0;
 
 typedef enum {
     MAIN_HAND = 0,
@@ -33,7 +33,8 @@ typedef enum {
     GLOVES    = 7,
     BOOTS     = 8,
     RING      = 9,
-    TRINKET   = 10
+    TRINKET   = 10,
+    RANDOM    = 99
 } slot_t;
 
 typedef struct {
@@ -83,19 +84,15 @@ typedef struct {
     proc_t  procs[MAX_PROCS];
     slot_t  slot;
     size_t  is_weapon;
-    //size_t  armor; // TODO: armor?
+    size_t  armor; // TODO: armor?
 } item_t;
 
-// TODO: different mob struct types? hero, dragon, undead, generic mob?
-//       this might be more complexity than worth it. would have to
-//       handle casting structs.
-
-// TODO:
-//       attack
-//       spell
-//       heal or defense
-
-// TODO: need way to track temporary buffs/debuffs.
+// TODO: 1. need way to track temporary buffs/debuffs.
+//       2. gold? vendors, can accumulate gold?
+//       3. talent points? specializations?
+//       4. Boss fights every 5 levels? Must beat boss to unlock
+//          next span of levels?
+//       5. random gear drops from mobs?
 
 struct hero_t {
     // Common fields.
@@ -121,19 +118,26 @@ struct hero_t {
 
 typedef struct hero_t hero_t;
 
+#define MAX_MOB_TYPES (5)
+
 typedef enum {
-    HERO,
-    HUMANOID,
-    ANIMAL,
-    UNDEAD,
-    DRAGON
+    HERO     = 1,
+    HUMANOID = 2,
+    ANIMAL   = 3,
+    UNDEAD   = 4,
+    DRAGON   = 5,
+    RANDOM   = 99
 } mob_t;
 
 // Basic mob gen functions.
-hero_t roll_mob(const char * name, const size_t lvl, const mob_t mob);
+hero_t roll_mob(const char * name, const size_t lvl, mob_t mob);
 hero_t roll_hero(const char * name, const size_t lvl);
 hero_t roll_dragon(const char * name, const size_t lvl);
-item_t create_item(const char * name, const size_t level, const slot_t slot);
+item_t create_item(const char * name, const size_t level, const slot_t slot,
+                   const size_t is_weapon);
+item_t gen_item(const char * name, const size_t level, const slot_t slot,
+                const size_t is_weapon);
+
 void   level_up(hero_t * h);
 void   set_hp_mp(hero_t * h);
 size_t get_max_hp(hero_t * h);
@@ -196,6 +200,64 @@ static const char * spell_prompt = "\n"
                                    "    s: shadow\n"
                                    "    u: non-elemental\n";
 
+#define MAX_PREFIX (50)
+static const char * prefix_list[MAX_PREFIX] = {
+    "ab", "ae", "ag", "am", "an", "ba", "be", "bi", "bo", "bu",
+    "ca", "ce", "ci", "co", "cu", "da", "de", "di", "do", "du",
+    "fa", "fe", "fi", "fo", "fu", "ga", "ge", "gi", "go", "gu",
+    "ha", "he", "hi", "ho", "hu", "ma", "me", "mi", "mo", "mu",
+    "sa", "se", "si", "so", "su", "ta", "te", "ti", "to", "tu"
+};
+
+#define MAX_SUFFIX (75)
+static const char * suffix_list[MAX_SUFFIX] = {
+    "ab", "ae", "ag", "am", "an", "ba", "be", "bi", "bo", "bu",
+    "ca", "ce", "ci", "co", "cu", "da", "de", "di", "do", "du",
+    "fa", "fe", "fi", "fo", "fu", "ga", "ge", "gi", "go", "gu",
+    "ha", "he", "hi", "ho", "hu", "ma", "me", "mi", "mo", "mu",
+    "sa", "se", "si", "so", "su", "ta", "te", "ti", "to", "tu",
+    "amm", "ath", "ass", "agg", "all",
+    "emm", "eth", "ess", "egg", "ell",
+    "imm", "ith", "iss", "igg", "ill",
+    "omm", "oth", "oss", "ogg", "oll",
+    "umm", "uth", "uss", "ugg", "ull",
+};
+
+// Length of 3 for each? To make things simpler?...
+static const char * shields[] = {
+    "buckler", "pavise", "targe"
+};
+
+static const char * one_hand_swords[] = {
+    "scimitar", "sabre", "shortsword"
+};
+
+static const char * one_hand_piercing[] = {
+    "dagger", "dirk", "shard"
+};
+
+static const char * one_hand_blunt[] = {
+    "mace", "hammer", "cudgel"
+};
+
+static const char * two_hand_swords[] = {
+    "bastard sword", "claymore", "longsword"
+};
+
+static const char * two_hand_piercing[] = {
+    "lance", "trident", "spear"
+};
+
+static const char * two_hand_blunt[] = {
+    "staff", "warhammer", "maul"
+};
+
+
+// TODO: titles?
+//static const char * title_list[50] = {
+//    " the cruel"
+//}
+
 
 
 int
@@ -224,7 +286,7 @@ main(int    argc   __attribute__((unused)),
 
     for (;;) {
         //hero_t enemy = roll_mob("ruby dragon", e_ini_lvl, DRAGON);
-        hero_t enemy = roll_mob("peon", e_ini_lvl, HUMANOID);
+        hero_t enemy = roll_mob(0, e_ini_lvl, RANDOM);
         print_portrait(&enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
         battle(&hero, &enemy);
@@ -239,6 +301,7 @@ main(int    argc   __attribute__((unused)),
 
         if (hero.xp >= xp_req) {
             level_up(&hero);
+
             xp_req++;
 
             e_ini_lvl++;
@@ -253,8 +316,12 @@ main(int    argc   __attribute__((unused)),
 hero_t
 roll_mob(const char * name,
          const size_t lvl,
-         const mob_t  mob)
+         mob_t        mob)
 {
+    if (mob == RANDOM) {
+        mob = rand() % (MAX_MOB_TYPES + 1);
+    }
+
     switch (mob) {
     case HERO:
         return roll_hero(name, lvl);
@@ -292,11 +359,15 @@ roll_hero(const char * name,
     if (name && *name) {
         strcpy(h.name, name);
     }
+    else {
+        strcat(h.name, prefix_list[rand() % MAX_PREFIX]);
+        strcat(h.name, suffix_list[rand() % MAX_SUFFIX]);
+    }
 
-    h.items[CHEST] = create_item("plain shirt", h.level, CHEST);
+    h.items[CHEST] = create_item("plain shirt", h.level, CHEST, 0);
     h.have_item[CHEST] = 1;
 
-    h.items[PANTS] = create_item("worn pants", h.level, PANTS);
+    h.items[PANTS] = create_item("worn pants", h.level, PANTS, 0);
     h.have_item[PANTS] = 1;
 
     set_hp_mp(&h);
@@ -330,6 +401,10 @@ roll_dragon(const char * name,
     if (name && *name) {
         strcpy(h.name, name);
     }
+    else {
+        strcat(h.name, prefix_list[rand() % MAX_PREFIX]);
+        strcat(h.name, suffix_list[rand() % MAX_SUFFIX]);
+    }
 
     set_hp_mp(&h);
 
@@ -343,10 +418,10 @@ roll_dragon(const char * name,
 item_t
 create_item(const char * name,
             const size_t level,
-            const slot_t slot)
+            const slot_t slot,
+            const size_t is_weapon)
 {
     // TODO: should set armor?
-    // This doesn't set is_weapon.
     item_t item;
     size_t attr_lvl = 0;
     size_t resist_lvl = 5;
@@ -359,6 +434,63 @@ create_item(const char * name,
     strcpy(item.name, name);
 
     item.slot = slot;
+    item.is_weapon = is_weapon;
+    item.armor = rand() % shift_lvl;
+
+    if (level > attr_lvl) {
+        item.attr.sta = rand() % (shift_lvl - attr_lvl);
+        item.attr.str = rand() % (shift_lvl - attr_lvl);
+        item.attr.agi = rand() % (shift_lvl - attr_lvl);
+        item.attr.wis = rand() % (shift_lvl - attr_lvl);
+        item.attr.spr = rand() % (shift_lvl - attr_lvl);
+    }
+
+    if (level > resist_lvl) {
+        item.resist.fire = rand() % (shift_lvl - resist_lvl);
+        item.resist.frost = rand() % (shift_lvl - resist_lvl);
+        item.resist.shadow = rand() % (shift_lvl - resist_lvl);
+    }
+
+    if (level > power_lvl) {
+        item.power.fire = rand() % (shift_lvl - power_lvl);
+        item.power.frost = rand() % (shift_lvl - power_lvl);
+        item.power.shadow = rand() % (shift_lvl - power_lvl);
+    }
+
+    if (level > procs_lvl) {
+        // Do nothing for now...
+    }
+
+    return item;
+}
+
+
+
+item_t
+gen_item(const char * name,
+         const size_t level,
+         const slot_t slot,
+         const size_t is_weapon)
+{
+    // TODO: should set armor?
+    item_t item;
+    size_t attr_lvl = 0;
+    size_t resist_lvl = 5;
+    size_t power_lvl = 10;
+    size_t procs_lvl = 20;
+    size_t shift_lvl = level + 1;
+
+    memset(&item, 0, sizeof(item));
+
+    strcpy(item.name, name);
+
+    if (slot == RANDOM) {
+        slot = rand() % (MAX_ITEMS + 1);
+    }
+
+    item.slot = slot;
+    item.is_weapon = is_weapon;
+    item.armor = rand() % shift_lvl;
 
     if (level > attr_lvl) {
         item.attr.sta = rand() % (shift_lvl - attr_lvl);
@@ -399,12 +531,15 @@ level_up(hero_t * h)
     ++(h->base.wis);
     ++(h->base.spr);
 
+    print_portrait(h, PORTRAIT_ROW, PORTRAIT_COL);
+
     reset_cursor();
     del_eof();
 
     {
         // Spend a bonus point.
         printf("%s leveled up!\n", h->name);
+        printf("\n");
         printf("Choose a stat for your bonus point:\n");
         printf("   1. stamina:  increases max hp\n");
         printf("   2. strength: increases melee damage\n");
@@ -720,6 +855,15 @@ get_mitigation(const hero_t * h)
 {
     float  armor = h->armor;
     float  mitigation;
+
+    for (size_t i = 0; i < MAX_ITEMS; ++i) {
+        if (!h->have_item[i]) {
+            // Nothing to do.
+            continue;
+        }
+
+        armor += h->items[i].armor;
+    }
 
     mitigation = 1 - (armor / (armor + ARMOR_HALF_POINT));
 
@@ -1115,39 +1259,44 @@ void
 battle(hero_t * hero,
        hero_t * enemy)
 {
+    print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
+    print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
+
     size_t regen_ctr = 0;
 
     for (;;) {
         ++regen_ctr;
 
         decision_loop(hero, enemy);
-        ++row;
+        ++row_;
+
         print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
         print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
+
+        usleep(SLEEP_INTERVAL);
 
         if (!hero->hp || !enemy->hp) {
             break;
         }
-
-        usleep(SLEEP_INTERVAL);
 
         enemy->attack(enemy, hero);
-        ++row;
+        ++row_;
+
         print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
         print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
+
+        usleep(SLEEP_INTERVAL);
 
         if (!hero->hp || !enemy->hp) {
             break;
         }
-
-        usleep(SLEEP_INTERVAL);
 
         if (regen_ctr == 2) {
             regen(hero);
             regen(enemy);
 
-            ++row;
-            ++row;
+            ++row_;
+            ++row_;
             print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
             print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
@@ -1156,15 +1305,15 @@ battle(hero_t * hero,
             usleep(SLEEP_INTERVAL);
         }
 
-        if (row >= MAX_BATTLE_TXT_LINES) {
-            row = 0;
+        if (row_ >= MAX_BATTLE_TXT_LINES) {
+            row_ = 0;
         }
 
         set_cursor();
         del_eof();
     }
 
-    row = 0;
+    row_ = 0;
 
     if (!hero->hp && enemy->hp) {
         printf("%s has defeated %s!\n\n", enemy->name, hero->name);
@@ -1172,6 +1321,10 @@ battle(hero_t * hero,
     else if (hero->hp && !enemy->hp) {
         printf("%s has defeated %s!\n\n", hero->name, enemy->name);
     }
+
+    reset_cursor();
+    del_eof();
+
 
     usleep(SLEEP_INTERVAL);
 
@@ -1499,11 +1652,16 @@ print_portrait(hero_t *     h,
 {
     // i: row
     // j: column
-    printf("\033[%zu;%zuH ", i, j);
-    printf("\033[%zu;%zuH name: %s", i + 1, j, h->name);
-    printf("\033[%zu;%zuH level: %zu", i + 2, j, h->level);
+    printf("\033[%zu;%zuH ",                     i + 0, j);
+    printf("\033[%zu;%zuH name:  %s    ",        i + 1, j, h->name);
+    printf("\033[%zu;%zuH level: %zu    ",       i + 2, j, h->level);
     printf("\033[%zu;%zuH hp:    %zu / %zu    ", i + 3, j, h->hp, get_max_hp(h));
     printf("\033[%zu;%zuH mp:    %zu / %zu    ", i + 4, j, h->mp, get_max_mp(h));
+    printf("\033[%zu;%zuH sta:   %zu    ",       i + 5, j, h->base.sta);
+    printf("\033[%zu;%zuH str:   %zu    ",       i + 6, j, h->base.str);
+    printf("\033[%zu;%zuH agi:   %zu    ",       i + 7, j, h->base.agi);
+    printf("\033[%zu;%zuH wis:   %zu    ",       i + 8, j, h->base.wis);
+    printf("\033[%zu;%zuH spr:   %zu    ",       i + 9, j, h->base.spr);
 
     set_cursor();
 
@@ -1540,7 +1698,7 @@ void
 set_cursor(void)
 {
     // Set cursor to current offset from battle text starting position.
-    printf("\033[%zu;%zuH\r", BATTLE_TXT_ROW + row, BATTLE_TXT_ROW + col);
+    printf("\033[%zu;%zuH\r", BATTLE_TXT_ROW + row_, BATTLE_TXT_ROW + col_);
 
     return;
 }
