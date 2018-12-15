@@ -6,7 +6,7 @@
 #include <unistd.h>
 
 #define MAX_PROCS (14)
-#define MAX_ITEMS (10)
+#define MAX_ITEMS (11)
 #define MAX_NAME_LEN  (32)
 #define ARMOR_HALF_POINT (100)
 #define DODGE_HALF_POINT (100)
@@ -18,6 +18,8 @@
 #define MAX_BATTLE_TXT_LINES (32)
 
 #define SLEEP_INTERVAL (500000)
+
+#define ITEM_DROP_THRESH (50)
 
 static size_t row_ = 0;
 static size_t col_ = 0;
@@ -34,8 +36,21 @@ typedef enum {
     BOOTS     = 8,
     RING      = 9,
     TRINKET   = 10,
-    RANDOM    = 99
+    RANDOM_S  = 99
 } slot_t;
+
+#define MAX_ARMOR_TYPES (7)
+typedef enum {
+    CLOTH    = 0,
+    LEATHER  = 1,
+    MAIL     = 2,
+    PLATE    = 3,
+    SHIELD   = 4,
+    WEAPON   = 5,
+    MISC     = 6,
+    NO_A     = 98,
+    RANDOM_A = 99
+} armor_t;
 
 typedef struct {
     size_t sta;
@@ -126,7 +141,7 @@ typedef enum {
     ANIMAL   = 3,
     UNDEAD   = 4,
     DRAGON   = 5,
-    RANDOM   = 99
+    RANDOM_M = 99
 } mob_t;
 
 // Basic mob gen functions.
@@ -135,8 +150,14 @@ hero_t roll_hero(const char * name, const size_t lvl);
 hero_t roll_dragon(const char * name, const size_t lvl);
 item_t create_item(const char * name, const size_t level, const slot_t slot,
                    const size_t is_weapon);
-item_t gen_item(const char * name, const size_t level, const slot_t slot,
-                const size_t is_weapon);
+item_t gen_item(const char * name, const size_t level, const size_t is_weapon,
+                armor_t armor_type, slot_t slot);
+void   gen_item_name(char * name, const size_t is_weapon,
+                     armor_t armor_type, slot_t slot);
+size_t gen_item_armor(const size_t level, const size_t is_weapon,
+                      armor_t armor_type);
+stats_t get_total_stats(const hero_t * h);
+
 
 void   level_up(hero_t * h);
 void   set_hp_mp(hero_t * h);
@@ -144,6 +165,7 @@ size_t get_max_hp(hero_t * h);
 size_t get_max_mp(hero_t * h);
 // Print functions.
 void         print_hero(hero_t * h, const size_t verbosity);
+void         print_equip(hero_t * h);
 void         print_fld(const char * what, const size_t amnt);
 const char * slot_to_str(slot_t s);
 const char * elem_to_str(const element_t elem);
@@ -224,34 +246,41 @@ static const char * suffix_list[MAX_SUFFIX] = {
 };
 
 // Length of 3 for each? To make things simpler?...
-static const char * shields[] = {
-    "buckler", "pavise", "targe"
-};
-
-static const char * one_hand_swords[] = {
-    "scimitar", "sabre", "shortsword"
-};
-
-static const char * one_hand_piercing[] = {
-    "dagger", "dirk", "shard"
-};
-
-static const char * one_hand_blunt[] = {
-    "mace", "hammer", "cudgel"
-};
-
-static const char * two_hand_swords[] = {
-    "bastard sword", "claymore", "longsword"
-};
-
-static const char * two_hand_piercing[] = {
-    "lance", "trident", "spear"
-};
-
-static const char * two_hand_blunt[] = {
-    "staff", "warhammer", "maul"
-};
-
+static const char * shields[] = { "buckler", "pavise", "targe" };
+static const char * one_hand_swords[] = { "scimitar", "sabre", "shortsword" };
+static const char * one_hand_piercing[] = { "dagger", "dirk", "shard" };
+static const char * one_hand_blunt[] = { "mace", "hammer", "cudgel" };
+static const char * two_hand_swords[] = { "bastard sword", "claymore", "longsword" };
+static const char * two_hand_piercing[] = { "lance", "trident", "spear" };
+static const char * two_hand_blunt[] = { "staff", "warhammer", "maul" };
+// Cloth
+static const char * cloth_helm[] = { "hood", "hat", "hat" };
+static const char * cloth_shoulders[] = { "amice", "mantle", "shoulders" };
+static const char * cloth_chest[] = { "robe", "vest", "shirt" };
+static const char * cloth_gloves[] = { "pants", "leggings", "shorts" };
+static const char * cloth_pants[] = { "pants", "leggings", "shorts" };
+static const char * cloth_boots[] = { "sandals", "slippers", "boots" };
+// Leather
+static const char * leather_helm[] = { "hood", "hat", "hat" };
+static const char * leather_shoulders[] = { "amice", "mantle", "shoulders" };
+static const char * leather_chest[] = { "robe", "vest", "shirt" };
+static const char * leather_gloves[] = { "pants", "leggings", "shorts" };
+static const char * leather_pants[] = { "pants", "leggings", "shorts" };
+static const char * leather_boots[] = { "sandals", "slippers", "boots" };
+// Mail
+static const char * mail_helm[] = { "coif", "hat", "hat" };
+static const char * mail_shoulders[] = { "amice", "mantle", "shoulders" };
+static const char * mail_chest[] = { "robe", "vest", "shirt" };
+static const char * mail_gloves[] = { "pants", "leggings", "shorts" };
+static const char * mail_pants[] = { "pants", "leggings", "shorts" };
+static const char * mail_boots[] = { "sandals", "slippers", "boots" };
+// Plate
+static const char * plate_helm[] = { "helm", "barbute", "hat" };
+static const char * plate_shoulders[] = { "pauldrons", "mantle", "shoulders" };
+static const char * plate_chest[] = { "breastplate", "vest", "shirt" };
+static const char * plate_gloves[] = { "gauntlets", "leggings", "shorts" };
+static const char * plate_pants[] = { "pants", "leggings", "shorts" };
+static const char * plate_boots[] = { "sabatons", "slippers", "boots" };
 
 // TODO: titles?
 //static const char * title_list[50] = {
@@ -286,7 +315,7 @@ main(int    argc   __attribute__((unused)),
 
     for (;;) {
         //hero_t enemy = roll_mob("ruby dragon", e_ini_lvl, DRAGON);
-        hero_t enemy = roll_mob(0, e_ini_lvl, RANDOM);
+        hero_t enemy = roll_mob(0, e_ini_lvl, RANDOM_M);
         print_portrait(&enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
         battle(&hero, &enemy);
@@ -298,6 +327,27 @@ main(int    argc   __attribute__((unused)),
         set_hp_mp(&hero);
 
         hero.xp++;
+
+        {
+            size_t trigger = rand() % 100;
+            if (trigger > ITEM_DROP_THRESH) {
+                item_t item = gen_item(0, hero.level, 0, RANDOM_A, RANDOM_S);
+
+                hero.items[item.slot] = item;
+                hero.have_item[item.slot] = 1;
+
+                set_hp_mp(&hero);
+
+                move_cursor(1, 1);
+                del_eof();
+
+                print_equip(&hero);
+                sleep(10);
+
+                move_cursor(1, 1);
+                del_eof();
+            }
+        }
 
         if (hero.xp >= xp_req) {
             level_up(&hero);
@@ -318,7 +368,7 @@ roll_mob(const char * name,
          const size_t lvl,
          mob_t        mob)
 {
-    if (mob == RANDOM) {
+    if (mob == RANDOM_M) {
         mob = rand() % (MAX_MOB_TYPES + 1);
     }
 
@@ -469,8 +519,9 @@ create_item(const char * name,
 item_t
 gen_item(const char * name,
          const size_t level,
-         const slot_t slot,
-         const size_t is_weapon)
+         const size_t is_weapon,
+         armor_t      armor_type,
+         slot_t       slot)
 {
     // TODO: should set armor?
     item_t item;
@@ -482,15 +533,58 @@ gen_item(const char * name,
 
     memset(&item, 0, sizeof(item));
 
-    strcpy(item.name, name);
+    // is_weapon has priority over slot_t and armor_t.
+    // armor_t has priority over slot_t.
+    // This is why is_weapon is const.
 
-    if (slot == RANDOM) {
-        slot = rand() % (MAX_ITEMS + 1);
+    if (is_weapon) {
+        armor_type = WEAPON;
     }
+    else {
+        if (armor_type == RANDOM_S) {
+            armor_type = rand() % (MAX_ARMOR_TYPES + 1);
+        }
+    }
+
+    if (slot == RANDOM_S) {
+        switch (armor_type) {
+        case WEAPON:
+            // Any of 0-2 slot_t.
+            slot = rand() % (TWO_HAND + 1);
+            break;
+
+        case SHIELD:
+            slot = OFF_HAND;
+            break;
+
+        case CLOTH:
+        case LEATHER:
+        case MAIL:
+        case PLATE:
+            // Any of 3-8 slot_t.
+            slot = 3 + (rand() % (5 + 1));
+            break;
+
+        case MISC:
+        default:
+            // Any of 9-10 slot_t.
+            slot = 9 + (rand() % (2));
+            break;
+        }
+    }
+
+    if (name && *name) {
+        strcpy(item.name, name);
+    }
+    else {
+        gen_item_name(item.name, is_weapon, armor_type, slot);
+    }
+
 
     item.slot = slot;
     item.is_weapon = is_weapon;
-    item.armor = rand() % shift_lvl;
+    item.armor = gen_item_armor(level, is_weapon, armor_type);
+    //item.armor = rand() % shift_lvl;
 
     if (level > attr_lvl) {
         item.attr.sta = rand() % (shift_lvl - attr_lvl);
@@ -517,6 +611,195 @@ gen_item(const char * name,
     }
 
     return item;
+}
+
+
+
+void
+gen_item_name(char *       name,
+              const size_t is_weapon,
+              armor_t      armor_type,
+              slot_t       slot)
+{
+    size_t i = rand() % 3;
+    size_t j = rand() % 2;
+
+    if (is_weapon) {
+        switch (slot) {
+        case MAIN_HAND:
+        case OFF_HAND:
+            switch (i) {
+            case 0:
+                strcpy(name, one_hand_swords[j]);
+                return;
+            case 1:
+                strcpy(name, one_hand_piercing[j]);
+                return;
+            case 2:
+            default:
+                strcpy(name, one_hand_blunt[j]);
+                return;
+            }
+        case TWO_HAND:
+        default:
+            switch (i) {
+            case 0:
+                strcpy(name, two_hand_swords[j]);
+                return;
+            case 1:
+                strcpy(name, two_hand_piercing[j]);
+                return;
+            case 2:
+            default:
+                strcpy(name, two_hand_blunt[j]);
+                return;
+            }
+        }
+    }
+
+    switch (armor_type) {
+        case CLOTH:
+            switch(slot) {
+            case HELM:
+                strcpy(name, cloth_helm[j]);
+                return;
+            case SHOULDERS:
+                strcpy(name, cloth_shoulders[j]);
+                return;
+            case CHEST:
+                strcpy(name, cloth_chest[j]);
+                return;
+            case PANTS:
+                strcpy(name, cloth_pants[j]);
+                return;
+            case GLOVES:
+                strcpy(name, cloth_gloves[j]);
+                return;
+            case BOOTS:
+            default:
+                strcpy(name, cloth_boots[j]);
+                return;
+            }
+        case LEATHER:
+            switch(slot) {
+            case HELM:
+                strcpy(name, leather_helm[j]);
+                return;
+            case SHOULDERS:
+                strcpy(name, leather_shoulders[j]);
+                return;
+            case CHEST:
+                strcpy(name, leather_chest[j]);
+                return;
+            case PANTS:
+                strcpy(name, leather_pants[j]);
+                return;
+            case GLOVES:
+                strcpy(name, leather_gloves[j]);
+                return;
+            case BOOTS:
+            default:
+                strcpy(name, leather_boots[j]);
+                return;
+            }
+        case MAIL:
+            switch(slot) {
+            case HELM:
+                strcpy(name, mail_helm[j]);
+                return;
+            case SHOULDERS:
+                strcpy(name, mail_shoulders[j]);
+                return;
+            case CHEST:
+                strcpy(name, mail_chest[j]);
+                return;
+            case PANTS:
+                strcpy(name, mail_pants[j]);
+                return;
+            case GLOVES:
+                strcpy(name, mail_gloves[j]);
+                return;
+            case BOOTS:
+            default:
+                strcpy(name, mail_boots[j]);
+                return;
+            }
+        case PLATE:
+            switch(slot) {
+            case HELM:
+                strcpy(name, plate_helm[j]);
+                return;
+            case SHOULDERS:
+                strcpy(name, plate_shoulders[j]);
+                return;
+            case CHEST:
+                strcpy(name, plate_chest[j]);
+                return;
+            case PANTS:
+                strcpy(name, plate_pants[j]);
+                return;
+            case GLOVES:
+                strcpy(name, plate_gloves[j]);
+                return;
+            case BOOTS:
+            default:
+                strcpy(name, plate_boots[j]);
+                return;
+            }
+        case SHIELD:
+            strcpy(name, shields[j]);
+            return;
+
+        case MISC:
+        default:
+            strcpy(name, shields[j]);
+            return;
+    }
+
+    return;
+}
+
+
+
+size_t
+gen_item_armor(const size_t level,
+               const size_t is_weapon,
+               armor_t      armor_type)
+{
+    // TODO: adjust stats based on armor? Cloth has caster stats, e.g.
+    //       Plate should have lower stats in general to compensate for armor.
+    if (is_weapon) {
+        return 0;
+    }
+
+    float base_armor = level + (rand() % level);
+    float multiplier = 1.0;
+
+    switch (armor_type) {
+    case CLOTH:
+        multiplier = 0.6;
+        break;
+    case LEATHER:
+        multiplier = 0.8;
+        break;
+    case MAIL:
+        multiplier = 1.0;
+        break;
+    case PLATE:
+        multiplier = 1.4;
+        break;
+    case SHIELD:
+        multiplier = 5.0;
+        break;
+    case MISC:
+    default:
+        multiplier = 1.0;
+        break;
+    }
+
+    size_t final_armor = (size_t) floor(base_armor * multiplier);
+
+    return final_armor;
 }
 
 
@@ -1553,6 +1836,41 @@ print_hero(hero_t *     h,
         }
 
         printf("  %s: %s\n", slot_to_str(i), h->items[i].name);
+        print_fld("  armor:", h->items[i].armor);
+        print_fld("    sta:", h->items[i].attr.sta);
+        print_fld("    str:", h->items[i].attr.str);
+        print_fld("    agi:", h->items[i].attr.agi);
+        print_fld("    wis:", h->items[i].attr.wis);
+        print_fld("    spr:", h->items[i].attr.spr);
+
+    }
+
+    printf("\n");
+
+
+    return;
+}
+
+
+
+void
+print_equip(hero_t * h)
+{
+    printf("name: %s\n", h->name);
+    printf("level: %zu\n", h->level);
+    printf("hp:    %zu / %zu\n", h->hp, get_max_hp(h));
+    printf("mp:    %zu / %zu\n", h->mp, get_max_mp(h));
+    printf("xp:    %zu\n", h->xp);
+
+    printf("equipment\n");
+
+    for (size_t i = 0; i < MAX_ITEMS; ++i) {
+        if (!h->have_item[i]) {
+            continue;
+        }
+
+        printf("  %s: %s\n", slot_to_str(i), h->items[i].name);
+        print_fld("  armor:", h->items[i].armor);
         print_fld("    sta:", h->items[i].attr.sta);
         print_fld("    str:", h->items[i].attr.str);
         print_fld("    agi:", h->items[i].attr.agi);
@@ -1652,16 +1970,17 @@ print_portrait(hero_t *     h,
 {
     // i: row
     // j: column
+    stats_t stats = get_total_stats(h);
     printf("\033[%zu;%zuH ",                     i + 0, j);
     printf("\033[%zu;%zuH name:  %s    ",        i + 1, j, h->name);
     printf("\033[%zu;%zuH level: %zu    ",       i + 2, j, h->level);
     printf("\033[%zu;%zuH hp:    %zu / %zu    ", i + 3, j, h->hp, get_max_hp(h));
     printf("\033[%zu;%zuH mp:    %zu / %zu    ", i + 4, j, h->mp, get_max_mp(h));
-    printf("\033[%zu;%zuH sta:   %zu    ",       i + 5, j, h->base.sta);
-    printf("\033[%zu;%zuH str:   %zu    ",       i + 6, j, h->base.str);
-    printf("\033[%zu;%zuH agi:   %zu    ",       i + 7, j, h->base.agi);
-    printf("\033[%zu;%zuH wis:   %zu    ",       i + 8, j, h->base.wis);
-    printf("\033[%zu;%zuH spr:   %zu    ",       i + 9, j, h->base.spr);
+    printf("\033[%zu;%zuH sta:   %zu    ",       i + 5, j, stats.sta);
+    printf("\033[%zu;%zuH str:   %zu    ",       i + 6, j, stats.str);
+    printf("\033[%zu;%zuH agi:   %zu    ",       i + 7, j, stats.agi);
+    printf("\033[%zu;%zuH wis:   %zu    ",       i + 8, j, stats.wis);
+    printf("\033[%zu;%zuH spr:   %zu    ",       i + 9, j, stats.spr);
 
     set_cursor();
 
@@ -1784,3 +2103,33 @@ clear_spell_prompt(void)
 
     return;
 }
+
+
+
+stats_t
+get_total_stats(const hero_t * h)
+{
+    stats_t stats;
+
+    stats.sta = h->base.sta;
+    stats.str = h->base.str;
+    stats.agi = h->base.agi;
+    stats.wis = h->base.wis;
+    stats.spr = h->base.spr;
+
+    for (size_t i = 0; i < MAX_ITEMS; ++i) {
+        if (!h->have_item[i]) {
+            // Nothing to do.
+            continue;
+        }
+
+        stats.sta += h->items[i].attr.sta;
+        stats.str += h->items[i].attr.str;
+        stats.agi += h->items[i].attr.agi;
+        stats.wis += h->items[i].attr.wis;
+        stats.spr += h->items[i].attr.spr;
+    }
+
+    return stats;
+}
+
