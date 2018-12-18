@@ -7,6 +7,7 @@
 
 #define MAX_PROCS (14)
 #define MAX_ITEMS (11)
+#define MAX_INVENTORY (64)
 #define MAX_NAME_LEN  (32)
 #define ARMOR_HALF_POINT (100)
 #define DODGE_HALF_POINT (100)
@@ -16,10 +17,17 @@
 #define BATTLE_TXT_ROW (13)
 #define BATTLE_TXT_COL (4)
 #define MAX_BATTLE_TXT_LINES (32)
+#define INVENTORY_ROW (1)
+#define INVENTORY_COL (96)
+#define SELECT_ROW (1)
+#define SELECT_COL (64)
+#define INV_PROMPT_ROW (16)
+#define INV_PROMPT_COL (64)
 
-#define SLEEP_INTERVAL (500000)
 
-#define ITEM_DROP_THRESH (50)
+#define USLEEP_INTERVAL (500000)
+
+#define ITEM_DROP_THRESH (10)
 
 static size_t row_ = 0;
 static size_t col_ = 0;
@@ -36,6 +44,9 @@ typedef enum {
     BOOTS     = 8,
     RING      = 9,
     TRINKET   = 10,
+    HP_POTION = 20,
+    MP_POTION = 21,
+    NO_ITEM   = 98,
     RANDOM_S  = 99
 } slot_t;
 
@@ -48,7 +59,7 @@ typedef enum {
     SHIELD   = 4,
     WEAPON   = 5,
     MISC     = 6,
-    NO_A     = 98,
+    NO_ARMOR = 98,
     RANDOM_A = 99
 } armor_t;
 
@@ -77,6 +88,11 @@ typedef enum {
 } element_t;
 
 typedef enum {
+    NO_SMEAR,
+    STD_SMEAR
+} smear_t;
+
+typedef enum {
     NONE     = 0,
     DRAIN_HP = 1,
     DRAIN_MP = 2,
@@ -100,6 +116,9 @@ typedef struct {
     slot_t  slot;
     size_t  is_weapon;
     size_t  armor; // TODO: armor?
+    size_t  stack; // 0 for non-stacking, n for amount.
+ // size_t  buff_duration; // 0 for infinite, n for rounds? Not sure about this.
+ // size_t  tier; // 0 for common, 1 for good, 2 rare, 3 epic, 4 legendary?
 } item_t;
 
 // TODO: 1. need way to track temporary buffs/debuffs.
@@ -127,8 +146,11 @@ struct hero_t {
     size_t  (*heal)(struct hero_t *);
     // hero specific fields.
     size_t  xp;
-    item_t  items[MAX_ITEMS];
+    item_t  items[MAX_ITEMS];       // Equipped items.
     size_t  have_item[MAX_ITEMS];
+    item_t  inventory[MAX_INVENTORY];
+    size_t  have_inventory[MAX_INVENTORY];
+ // item_t  buffs[MAX_BUFFS];       // Placeholder, not sure about this.
 };
 
 typedef struct hero_t hero_t;
@@ -150,6 +172,7 @@ hero_t roll_hero(const char * name, const size_t lvl);
 hero_t roll_dragon(const char * name, const size_t lvl);
 item_t create_item(const char * name, const size_t level, const slot_t slot,
                    const size_t is_weapon);
+void   spawn_item_drop(hero_t * h);
 item_t gen_item(const char * name, const size_t level, const size_t is_weapon,
                 armor_t armor_type, slot_t slot);
 void   gen_item_name(char * name, const size_t is_weapon,
@@ -166,6 +189,12 @@ size_t get_max_mp(hero_t * h);
 // Print functions.
 void         print_hero(hero_t * h, const size_t verbosity);
 void         print_equip(hero_t * h);
+size_t       add_to_inventory(hero_t * h, const item_t * new_item);
+void         choose_inventory(hero_t * h, item_t * new_item);
+void         print_inventory(const hero_t * h, const size_t selected);
+void         print_selection(const hero_t * h, const int selected,
+                             const item_t * new_item);
+void         print_inventory_prompt(void);
 void         print_fld(const char * what, const size_t amnt);
 const char * slot_to_str(slot_t s);
 const char * elem_to_str(const element_t elem);
@@ -191,14 +220,15 @@ size_t spell_enemy(hero_t * hero, hero_t * enemy, const element_t element);
 size_t cure(hero_t * h);
 
 void   sum_procs(size_t * h_proc_sum, hero_t * h);
-float  get_melee_dmg(const hero_t * h);
-float  get_spell_dmg(const hero_t * h, const element_t element);
+float  get_melee_dmg(const hero_t * h, smear_t smear_type);
+float  get_spell_dmg(const hero_t * h, const element_t element, smear_t smear_type);
 float  get_spell_res(const hero_t * h, const element_t element);
 float  get_elem_pow(const spell_t * power, const element_t element);
 float  get_elem_res(const spell_t * power, const element_t element);
 float  get_mitigation(const hero_t * h);
+size_t get_armor(const hero_t * h);
 float  get_resist(const hero_t * h);
-size_t get_dodge(const hero_t * h);
+float  get_dodge(const hero_t * h);
 size_t attack_barrier(size_t final_dmg, hero_t * enemy);
 void   regen(hero_t * h);
 size_t restore_hp(hero_t * h, const size_t amnt);
@@ -268,9 +298,9 @@ static const char * leather_gloves[] = { "pants", "leggings", "shorts" };
 static const char * leather_pants[] = { "pants", "leggings", "shorts" };
 static const char * leather_boots[] = { "sandals", "slippers", "boots" };
 // Mail
-static const char * mail_helm[] = { "coif", "hat", "hat" };
+static const char * mail_helm[] = { "coif", "crown", "hat" };
 static const char * mail_shoulders[] = { "amice", "mantle", "shoulders" };
-static const char * mail_chest[] = { "robe", "vest", "shirt" };
+static const char * mail_chest[] = { "hauberk", "vest", "shirt" };
 static const char * mail_gloves[] = { "pants", "leggings", "shorts" };
 static const char * mail_pants[] = { "pants", "leggings", "shorts" };
 static const char * mail_boots[] = { "sandals", "slippers", "boots" };
@@ -328,26 +358,7 @@ main(int    argc   __attribute__((unused)),
 
         hero.xp++;
 
-        {
-            size_t trigger = rand() % 100;
-            if (trigger > ITEM_DROP_THRESH) {
-                item_t item = gen_item(0, hero.level, 0, RANDOM_A, RANDOM_S);
-
-                hero.items[item.slot] = item;
-                hero.have_item[item.slot] = 1;
-
-                set_hp_mp(&hero);
-
-                move_cursor(1, 1);
-                del_eof();
-
-                print_equip(&hero);
-                sleep(10);
-
-                move_cursor(1, 1);
-                del_eof();
-            }
-        }
+        spawn_item_drop(&hero);
 
         if (hero.xp >= xp_req) {
             level_up(&hero);
@@ -368,6 +379,9 @@ roll_mob(const char * name,
          const size_t lvl,
          mob_t        mob)
 {
+    // Using brute force stack allocation and return by value,
+    // because this will only be called once every few minutes.
+
     if (mob == RANDOM_M) {
         mob = rand() % (MAX_MOB_TYPES + 1);
     }
@@ -523,7 +537,8 @@ gen_item(const char * name,
          armor_t      armor_type,
          slot_t       slot)
 {
-    // TODO: should set armor?
+    // Using brute force stack allocation and return by value,
+    // because this will only be called once every few minutes.
     item_t item;
     size_t attr_lvl = 0;
     size_t resist_lvl = 5;
@@ -805,6 +820,64 @@ gen_item_armor(const size_t level,
 
 
 void
+spawn_item_drop(hero_t * h)
+{
+    // Anything from mana potions to armor, swords, etc.
+    // Tiers of quality? Rare, epic, legendary?
+    size_t trigger = rand() % 100;
+
+    if (trigger < ITEM_DROP_THRESH) {
+        return;
+    }
+
+    // This feels goofy.
+    size_t drop_type = rand() % 3;
+    // size_t tier = rand() % 4;
+    item_t new_item;
+    // item.tier = tier;
+
+    switch (drop_type) {
+    case 0:
+        new_item = gen_item(0, h->level, 0, RANDOM_A, RANDOM_S);
+
+        //h->items[new_item.slot] = new_item;
+        //h->have_item[new_item.slot] = 1;
+
+        break;
+
+    case 1:
+        memset(&new_item, 0, sizeof(new_item));
+        new_item.slot = HP_POTION;
+        sprintf(new_item.name, "Health Potion");
+        //add_to_inventory(h, &new_item);
+        break;
+
+    case 2:
+    default:
+        memset(&new_item, 0, sizeof(new_item));
+        new_item.slot = MP_POTION;
+        sprintf(new_item.name, "Mana Potion");
+        //add_to_inventory(h, &new_item);
+        break;
+    }
+    new_item = gen_item(0, h->level, 0, RANDOM_A, RANDOM_S);
+
+    choose_inventory(h, &new_item);
+
+    move_cursor(1, 1);
+    del_eof();
+
+    set_hp_mp(h);
+
+    move_cursor(1, 1);
+    del_eof();
+
+    return;
+}
+
+
+
+void
 level_up(hero_t * h)
 {
     ++(h->level);
@@ -953,7 +1026,8 @@ get_max_mp(hero_t * h)
 
 
 float
-get_melee_dmg(const hero_t * h)
+get_melee_dmg(const hero_t * h,
+              smear_t        smear_type)
 {
     // Attack damage is
     //
@@ -1016,7 +1090,16 @@ get_melee_dmg(const hero_t * h)
     dmg = str * mult;
 
     // Add a smear to dmg, to give it some randomness.
-    float smear = 0.01 * (80 + (rand () % 41));
+    float smear;
+
+    switch (smear_type) {
+    case NO_SMEAR:
+        smear = 1;
+        break;
+    case STD_SMEAR:
+        smear = 0.01 * (80 + (rand () % 41));
+        break;
+    }
 
     return dmg * smear;
 }
@@ -1025,7 +1108,8 @@ get_melee_dmg(const hero_t * h)
 
 float
 get_spell_dmg(const hero_t *  h,
-              const element_t element)
+              const element_t element,
+              smear_t         smear_type)
 {
     // Spell damage (and spell healing) is
     //
@@ -1057,7 +1141,16 @@ get_spell_dmg(const hero_t *  h,
     dmg += spell_power;
 
     // Add a smear to dmg, to give it some randomness.
-    float smear = 0.01 * (80 + (rand () % 41));
+    float smear;
+
+    switch (smear_type) {
+    case NO_SMEAR:
+        smear = 1;
+        break;
+    case STD_SMEAR:
+        smear = 0.01 * (80 + (rand () % 41));
+        break;
+    }
 
     return dmg * smear;
 }
@@ -1136,8 +1229,23 @@ get_elem_res(const spell_t * resist,
 float
 get_mitigation(const hero_t * h)
 {
-    float  armor = h->armor;
+    float  armor = (float) get_armor(h);
     float  mitigation;
+
+    mitigation = 1 - (armor / (armor + ARMOR_HALF_POINT));
+
+    // TODO: sum over armor bonuses from gear?
+    //       How will armor be calculated?
+
+    return mitigation;
+}
+
+
+
+size_t
+get_armor(const hero_t * h)
+{
+    size_t armor = h->armor;
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
         if (!h->have_item[i]) {
@@ -1148,12 +1256,7 @@ get_mitigation(const hero_t * h)
         armor += h->items[i].armor;
     }
 
-    mitigation = 1 - (armor / (armor + ARMOR_HALF_POINT));
-
-    // TODO: sum over armor bonuses from gear?
-    //       How will armor be calculated?
-
-    return mitigation;
+    return armor;
 }
 
 
@@ -1183,11 +1286,13 @@ get_spell_res(const hero_t *  h,
 
 
 
-size_t
+float
 get_dodge(const hero_t * h)
 {
-    float  agi = 0;
-    size_t dodge = 0;
+    // Dodge is four digit float, e.g. 48.38%
+    // 0 - 9999.
+    float agi = 0;
+    float dodge = 0;
 
     agi += h->base.agi;
 
@@ -1199,14 +1304,14 @@ get_dodge(const hero_t * h)
         agi += h->items[i].attr.agi;
     }
 
-    dodge = (size_t) floor(100 * agi / (agi + DODGE_HALF_POINT));
+    dodge = floor(10000 * agi / (agi + DODGE_HALF_POINT));
 
     return dodge;
 }
 
 
 
-size_t
+float
 get_spell_crit(const hero_t * h)
 {
     float  wis = 0;
@@ -1235,8 +1340,8 @@ attack_enemy(hero_t * hero,
 {
     {
         // Calculate dodge first. If attack misses, nothing left to do.
-        size_t dodge = get_dodge(enemy);
-        size_t trigger = rand() % 100;
+        float dodge = get_dodge(enemy);
+        float trigger = rand() % 10000;
 
         if (dodge > trigger) {
             printf("%s attacked %s and missed\n", hero->name,
@@ -1259,7 +1364,7 @@ attack_enemy(hero_t * hero,
     sum_procs(h_proc_sum, hero);
     sum_procs(e_proc_sum, enemy);
 
-    base_dmg = get_melee_dmg(hero);
+    base_dmg = get_melee_dmg(hero, STD_SMEAR);
 
     {
         // Calculate crit. Reusing dodge for now.
@@ -1352,7 +1457,7 @@ spell_enemy(hero_t *        hero,
     size_t       final_dmg;
     const char * what = elem_to_str(element);
 
-    base_dmg = get_spell_dmg(hero, element);
+    base_dmg = get_spell_dmg(hero, element, STD_SMEAR);
 
     {
         // Calculate crit. Reusing dodge for now.
@@ -1402,7 +1507,7 @@ cure(hero_t * h)
         return 0;
     }
 
-    size_t n = restore_hp(h, get_spell_dmg(h, RESTORATION));
+    size_t n = restore_hp(h, get_spell_dmg(h, RESTORATION, STD_SMEAR));
 
     printf("%s healed %s for %zu hp\n", what, h->name, n);
 
@@ -1556,7 +1661,7 @@ battle(hero_t * hero,
         print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
         print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
-        usleep(SLEEP_INTERVAL);
+        usleep(USLEEP_INTERVAL);
 
         if (!hero->hp || !enemy->hp) {
             break;
@@ -1568,7 +1673,7 @@ battle(hero_t * hero,
         print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
         print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
-        usleep(SLEEP_INTERVAL);
+        usleep(USLEEP_INTERVAL);
 
         if (!hero->hp || !enemy->hp) {
             break;
@@ -1585,7 +1690,7 @@ battle(hero_t * hero,
 
             regen_ctr = 0;
 
-            usleep(SLEEP_INTERVAL);
+            usleep(USLEEP_INTERVAL);
         }
 
         if (row_ >= MAX_BATTLE_TXT_LINES) {
@@ -1609,7 +1714,7 @@ battle(hero_t * hero,
     del_eof();
 
 
-    usleep(SLEEP_INTERVAL);
+    usleep(USLEEP_INTERVAL);
 
     return;
 }
@@ -1843,6 +1948,17 @@ print_hero(hero_t *     h,
         print_fld("    wis:", h->items[i].attr.wis);
         print_fld("    spr:", h->items[i].attr.spr);
 
+        printf("\n");
+        printf("spell power\n");
+        printf("  fire:   %zu\n", h->items[i].power.fire);
+        printf("  frost:  %zu\n", h->items[i].power.frost);
+        printf("  shadow: %zu\n", h->items[i].power.shadow);
+        printf("\n");
+        printf("spell resist\n");
+        printf("  fire:   %zu\n", h->items[i].resist.fire);
+        printf("  frost:  %zu\n", h->items[i].resist.frost);
+        printf("  shadow: %zu\n", h->items[i].resist.shadow);
+        printf("\n");
     }
 
     printf("\n");
@@ -1856,12 +1972,29 @@ print_hero(hero_t *     h,
 void
 print_equip(hero_t * h)
 {
-    printf("name: %s\n", h->name);
+    printf("name:  %s\n", h->name);
     printf("level: %zu\n", h->level);
-    printf("hp:    %zu / %zu\n", h->hp, get_max_hp(h));
-    printf("mp:    %zu / %zu\n", h->mp, get_max_mp(h));
-    printf("xp:    %zu\n", h->xp);
+    printf("hp:    %zu\n", get_max_hp(h));
+    printf("mp:    %zu\n", get_max_mp(h));
+    printf("\n");
+    printf("sta:   %zu\n", h->base.sta);
+    printf("str:   %zu\n", h->base.str);
+    printf("agi:   %zu\n", h->base.agi);
+    printf("wis:   %zu\n", h->base.wis);
+    printf("spr:   %zu\n", h->base.spr);
+    printf("\n");
+    printf("armor: %zu (%.2f%% melee dmg reduction)\n", get_armor(h),
+           100 - (100 * get_mitigation(h)));
+    printf("dodge:      %.2f%%\n", 0.01 * get_dodge(h));
+    printf("\n");
+    printf("attack dmg: %.2f\n", get_melee_dmg(h, NO_SMEAR));
+    printf("spell dmg:\n");
+    printf("  fire:     %.2f\n", get_spell_dmg(h, FIRE, NO_SMEAR));
+    printf("  frost:    %.2f\n", get_spell_dmg(h, FROST, NO_SMEAR));
+    printf("  shadow:   %.2f\n", get_spell_dmg(h, SHADOW, NO_SMEAR));
+    printf("  non-elem: %.2f\n", get_spell_dmg(h, NON_ELEM, NO_SMEAR));
 
+    printf("\n");
     printf("equipment\n");
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
@@ -1869,18 +2002,16 @@ print_equip(hero_t * h)
             continue;
         }
 
-        printf("  %s: %s\n", slot_to_str(i), h->items[i].name);
-        print_fld("  armor:", h->items[i].armor);
-        print_fld("    sta:", h->items[i].attr.sta);
-        print_fld("    str:", h->items[i].attr.str);
-        print_fld("    agi:", h->items[i].attr.agi);
-        print_fld("    wis:", h->items[i].attr.wis);
-        print_fld("    spr:", h->items[i].attr.spr);
-
+        printf("  %s: \e[1;32m%s\e[0m\n", slot_to_str(i), h->items[i].name);
+        //print_fld("  armor:", h->items[i].armor);
+        //print_fld("    sta:", h->items[i].attr.sta);
+        //print_fld("    str:", h->items[i].attr.str);
+        //print_fld("    agi:", h->items[i].attr.agi);
+        //print_fld("    wis:", h->items[i].attr.wis);
+        //print_fld("    spr:", h->items[i].attr.spr);
     }
 
-    printf("\n");
-
+    fflush(stdout);
 
     return;
 }
@@ -1937,6 +2068,10 @@ slot_to_str(slot_t s)
     case TRINKET:
         return "trinket";
 
+    case HP_POTION:
+    case MP_POTION:
+        return "consumable";
+
     default:
         return "NA";
     }
@@ -1981,11 +2116,270 @@ print_portrait(hero_t *     h,
     printf("\033[%zu;%zuH agi:   %zu    ",       i + 7, j, stats.agi);
     printf("\033[%zu;%zuH wis:   %zu    ",       i + 8, j, stats.wis);
     printf("\033[%zu;%zuH spr:   %zu    ",       i + 9, j, stats.spr);
+    printf("\033[%zu;%zuH armor: %zu    ",       i + 10, j, get_armor(h));
 
     set_cursor();
 
     return;
 }
+
+
+
+size_t
+add_to_inventory(hero_t *       h,
+                 const item_t * new_item)
+{
+    for (size_t i = 0; i < MAX_INVENTORY; ++i) {
+        if (!h->have_inventory[i]) {
+            h->inventory[i] = *new_item;
+            h->have_inventory[i] = 1;
+
+            return 1;
+        }
+    }
+
+    // Inventory full.
+    return 0;
+}
+
+
+
+void
+choose_inventory(hero_t * h,
+                 item_t * new_item)
+{
+    size_t done = 0;
+    int    selection = -1;
+
+    move_cursor(1, 1);
+    del_eof();
+
+    print_equip(h);
+    print_selection(h, selection, new_item);
+    print_inventory(h, 0);
+
+    for (;;) {
+        print_inventory_prompt();
+
+        char act_var = (char) fgetc(stdin);
+
+        if (act_var == '\033') {
+            fgetc(stdin);
+            act_var = (char) fgetc(stdin);
+
+            switch (act_var) {
+            case 'A':
+                selection--;
+                if (selection < -1) { selection = -1; }
+                break;
+
+            case 'B':
+                selection++;
+                if (selection > MAX_INVENTORY) {
+                    selection = MAX_INVENTORY;
+                }
+                break;
+
+            default:
+                break;
+            }
+        }
+        else {
+            switch (act_var) {
+            case 'a':
+                done = add_to_inventory(h, new_item);
+                break;
+
+            case 'd':
+                if (selection < 0) {
+                    new_item->slot = NO_ITEM;
+                }
+                else {
+                    h->inventory[selection].slot = NO_ITEM;
+                    h->have_inventory[selection] = 0;
+                }
+
+                break;
+
+            case 'e':
+                if (selection >= 0) {
+                    if (!h->have_inventory[selection]) {
+                        // Can't equip something from inventory
+                        // that's not there.
+                        break;
+                    }
+                }
+
+                // Get pointer to selected item, and swap equipped item
+                // with selected item.
+                item_t * s_i;
+                slot_t   s_i_slot;
+
+                if (selection < 0) {
+                    s_i = new_item;
+                    s_i_slot = new_item->slot;
+                }
+                else {
+                    s_i = &h->inventory[selection];
+                    s_i_slot = h->inventory[selection].slot;
+                }
+
+                if (s_i_slot > MAX_ITEMS - 1) {
+                    // This isn't an equippable item (It's a potion
+                    // or NO_ITEM).
+                    break;
+                }
+
+                item_t old_item = h->items[s_i_slot];
+                size_t have_old_item = h->have_item[s_i_slot];
+
+                h->items[s_i_slot] = *s_i;
+                h->have_item[s_i_slot] = 1;
+
+                if (selection < 0) {
+                    *new_item = old_item;
+
+                    if (!have_old_item) {
+                        new_item->slot = NO_ITEM;
+                    }
+                }
+                else {
+                    h->inventory[selection] = old_item;
+                    h->have_inventory[selection] = have_old_item;
+
+                    if (!have_old_item) {
+                        h->inventory[selection].slot = NO_ITEM;
+                    }
+                }
+
+                break;
+
+            case 'q':
+                done = 1;
+                break;
+
+            default:
+                break;
+            }
+        }
+
+        move_cursor(1, 1);
+        del_eof();
+
+        print_equip(h);
+        print_selection(h, selection, new_item);
+        print_inventory(h, 0);
+
+        while (fgetc(stdin) != '\n');
+
+        if (done) { break; }
+    }
+
+    return;
+}
+
+
+
+void
+print_inventory(const hero_t * h,
+                const size_t   selected)
+{
+    size_t row = INVENTORY_ROW;
+    size_t col = INVENTORY_COL;
+    size_t shift = 1;
+
+    printf("\033[%zu;%zuH Inventory", row, col);
+
+    for (size_t i = 0; i < MAX_INVENTORY; ++i) {
+        if (!h->have_inventory[i]) {
+            // Nothing to do.
+            continue;
+        }
+
+        if (i == selected) {
+            printf("\033[%zu;%zuH * %s", row + shift, col, h->inventory[i].name);
+        }
+        else {
+            printf("\033[%zu;%zuH   %s", row + shift, col, h->inventory[i].name);
+        }
+
+        ++shift;
+    }
+
+    fflush(stdout);
+
+    return;
+}
+
+
+
+void
+print_selection(const hero_t * h,
+                const int      selected,
+                const item_t * new_item)
+{
+    size_t row = SELECT_ROW;
+    size_t col = SELECT_COL;
+
+    const item_t * item;
+
+    if (selected < 0) {
+        // New item in hand is selected.
+        item = new_item;
+    }
+    else {
+        // Old item in inventory is selected.
+        item = &h->inventory[selected];
+    }
+
+    printf("\033[%zu;%zuH Item Select", row, col);
+
+    if (item->slot == NO_ITEM) {
+        // Nothing to print.
+        return;
+    }
+
+    printf("\e[1;32m");
+    printf("\033[%zu;%zuH %s", row + 2, col, item->name);
+    printf("\e[0m");
+
+    if (item->slot == HP_POTION || item->slot == MP_POTION) {
+        // No other stats to print.
+        return;
+    }
+
+    printf("\033[%zu;%zuH armor: %zu", row + 3, col, item->armor);
+    printf("\033[%zu;%zuH sta:   %zu", row + 4, col, item->attr.sta);
+    printf("\033[%zu;%zuH str:   %zu", row + 5, col, item->attr.str);
+    printf("\033[%zu;%zuH agi:   %zu", row + 6, col, item->attr.agi);
+    printf("\033[%zu;%zuH wis:   %zu", row + 7, col, item->attr.wis);
+    printf("\033[%zu;%zuH spr:   %zu", row + 8, col, item->attr.spr);
+
+    fflush(stdout);
+
+    return;
+}
+
+
+
+void
+print_inventory_prompt(void)
+{
+    size_t row = INV_PROMPT_ROW;
+    size_t col = INV_PROMPT_COL;
+
+    printf("\033[%zu;%zuH Actions:", row, col);
+
+    printf("\033[%zu;%zuH a: add to inventory", row + 3, col);
+    printf("\033[%zu;%zuH d: throw away selected item", row + 4, col);
+    printf("\033[%zu;%zuH e: equip selected item", row + 5, col);
+    printf("\033[%zu;%zuH q: quit", row + 6, col);
+
+    fflush(stdout);
+
+    return;
+}
+
 
 
 
