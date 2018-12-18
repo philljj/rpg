@@ -7,7 +7,7 @@
 
 #define MAX_PROCS (14)
 #define MAX_ITEMS (11)
-#define MAX_INVENTORY (64)
+#define MAX_INVENTORY (32)
 #define MAX_NAME_LEN  (32)
 #define ARMOR_HALF_POINT (100)
 #define DODGE_HALF_POINT (100)
@@ -17,7 +17,9 @@
 #define BATTLE_TXT_ROW (13)
 #define BATTLE_TXT_COL (4)
 #define MAX_BATTLE_TXT_LINES (32)
-#define INVENTORY_ROW (1)
+#define NEW_ITEM_ROW (1)
+#define NEW_ITEM_COL (96)
+#define INVENTORY_ROW (4)
 #define INVENTORY_COL (96)
 #define SELECT_ROW (1)
 #define SELECT_COL (64)
@@ -107,6 +109,13 @@ typedef struct {
     size_t      coeff; // Multipier. 0 - 100
 } proc_t;
 
+typedef enum {
+    COMMON = 0,
+    GOOD   = 1,
+    RARE   = 2,
+    EPIC   = 3
+} tier_t;
+
 typedef struct {
     char    name[MAX_NAME_LEN + 1];
     stats_t attr;
@@ -118,7 +127,7 @@ typedef struct {
     size_t  armor; // TODO: armor?
     size_t  stack; // 0 for non-stacking, n for amount.
  // size_t  buff_duration; // 0 for infinite, n for rounds? Not sure about this.
- // size_t  tier; // 0 for common, 1 for good, 2 rare, 3 epic, 4 legendary?
+    tier_t  tier; // 0 for common, 1 for good, 2 rare, 3 epic, 4 legendary?
 } item_t;
 
 // TODO: 1. need way to track temporary buffs/debuffs.
@@ -191,10 +200,12 @@ void         print_hero(hero_t * h, const size_t verbosity);
 void         print_equip(hero_t * h);
 size_t       add_to_inventory(hero_t * h, const item_t * new_item);
 void         choose_inventory(hero_t * h, item_t * new_item);
-void         print_inventory(const hero_t * h, const size_t selected);
+void         print_inventory(const hero_t * h, const int selected,
+                             const item_t * new_item);
 void         print_selection(const hero_t * h, const int selected,
                              const item_t * new_item);
 void         print_inventory_prompt(void);
+void         sprintf_item_name(char * name, const item_t * item);
 void         print_fld(const char * what, const size_t amnt);
 const char * slot_to_str(slot_t s);
 const char * elem_to_str(const element_t elem);
@@ -428,6 +439,14 @@ roll_hero(const char * name,
         strcat(h.name, suffix_list[rand() % MAX_SUFFIX]);
     }
 
+    for (size_t i = 0; i < MAX_ITEMS; ++i) {
+        h.items[i].slot = NO_ITEM;
+    }
+
+    for (size_t i = 0; i < MAX_INVENTORY; ++i) {
+        h.inventory[i].slot = NO_ITEM;
+    }
+
     h.items[CHEST] = create_item("plain shirt", h.level, CHEST, 0);
     h.have_item[CHEST] = 1;
 
@@ -545,8 +564,11 @@ gen_item(const char * name,
     size_t power_lvl = 10;
     size_t procs_lvl = 20;
     size_t shift_lvl = level + 1;
+    size_t tier = rand() % 4;
 
     memset(&item, 0, sizeof(item));
+
+    item.tier = tier;
 
     // is_weapon has priority over slot_t and armor_t.
     // armor_t has priority over slot_t.
@@ -832,9 +854,7 @@ spawn_item_drop(hero_t * h)
 
     // This feels goofy.
     size_t drop_type = rand() % 3;
-    // size_t tier = rand() % 4;
     item_t new_item;
-    // item.tier = tier;
 
     switch (drop_type) {
     case 0:
@@ -1997,18 +2017,12 @@ print_equip(hero_t * h)
     printf("\n");
     printf("equipment\n");
 
-    for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (!h->have_item[i]) {
-            continue;
-        }
+    char pretty_name[MAX_NAME_LEN + 1];
 
-        printf("  %s: \e[1;32m%s\e[0m\n", slot_to_str(i), h->items[i].name);
-        //print_fld("  armor:", h->items[i].armor);
-        //print_fld("    sta:", h->items[i].attr.sta);
-        //print_fld("    str:", h->items[i].attr.str);
-        //print_fld("    agi:", h->items[i].attr.agi);
-        //print_fld("    wis:", h->items[i].attr.wis);
-        //print_fld("    spr:", h->items[i].attr.spr);
+    for (size_t i = 0; i < MAX_ITEMS; ++i) {
+        sprintf_item_name(pretty_name, &h->items[i]);
+
+        printf("  %s: \e[1;32m%s\e[0m\n", slot_to_str(i), pretty_name);
     }
 
     fflush(stdout);
@@ -2071,6 +2085,9 @@ slot_to_str(slot_t s)
     case HP_POTION:
     case MP_POTION:
         return "consumable";
+
+    case NO_ITEM:
+        return "empty";
 
     default:
         return "NA";
@@ -2156,7 +2173,7 @@ choose_inventory(hero_t * h,
 
     print_equip(h);
     print_selection(h, selection, new_item);
-    print_inventory(h, 0);
+    print_inventory(h, selection, new_item);
 
     for (;;) {
         print_inventory_prompt();
@@ -2268,7 +2285,7 @@ choose_inventory(hero_t * h,
 
         print_equip(h);
         print_selection(h, selection, new_item);
-        print_inventory(h, 0);
+        print_inventory(h, selection, new_item);
 
         while (fgetc(stdin) != '\n');
 
@@ -2282,8 +2299,31 @@ choose_inventory(hero_t * h,
 
 void
 print_inventory(const hero_t * h,
-                const size_t   selected)
+                const int      selected,
+                const item_t * new_item)
 {
+    char   pretty_name[MAX_NAME_LEN + 1];
+
+    {
+        size_t row = NEW_ITEM_ROW;
+        size_t col = NEW_ITEM_COL;
+        size_t shift = 1;
+
+        sprintf_item_name(pretty_name, new_item);
+
+        printf("\033[%zu;%zuH New Item", row, col);
+
+        if (-1 == selected) {
+            printf("\033[%zu;%zuH * %s: %s", row + shift, col,
+                   slot_to_str(new_item->slot), pretty_name);
+        }
+        else {
+            printf("\033[%zu;%zuH   %s: %s", row + shift, col,
+                   slot_to_str(new_item->slot), pretty_name);
+        }
+
+    }
+
     size_t row = INVENTORY_ROW;
     size_t col = INVENTORY_COL;
     size_t shift = 1;
@@ -2291,16 +2331,17 @@ print_inventory(const hero_t * h,
     printf("\033[%zu;%zuH Inventory", row, col);
 
     for (size_t i = 0; i < MAX_INVENTORY; ++i) {
-        if (!h->have_inventory[i]) {
-            // Nothing to do.
-            continue;
-        }
+        const item_t * item = &h->inventory[i];
 
-        if (i == selected) {
-            printf("\033[%zu;%zuH * %s", row + shift, col, h->inventory[i].name);
+        sprintf_item_name(pretty_name, item);
+
+        if ((int) i == selected) {
+            printf("\033[%zu;%zuH * %s: %s", row + shift, col,
+                   slot_to_str(item->slot), pretty_name);
         }
         else {
-            printf("\033[%zu;%zuH   %s", row + shift, col, h->inventory[i].name);
+            printf("\033[%zu;%zuH   %s: %s", row + shift, col,
+                   slot_to_str(item->slot), pretty_name);
         }
 
         ++shift;
@@ -2339,9 +2380,11 @@ print_selection(const hero_t * h,
         return;
     }
 
-    printf("\e[1;32m");
-    printf("\033[%zu;%zuH %s", row + 2, col, item->name);
-    printf("\e[0m");
+    char   pretty_name[MAX_NAME_LEN + 1];
+
+    sprintf_item_name(pretty_name, new_item);
+
+    printf("\033[%zu;%zuH %s", row + 2, col, pretty_name);
 
     if (item->slot == HP_POTION || item->slot == MP_POTION) {
         // No other stats to print.
@@ -2380,6 +2423,34 @@ print_inventory_prompt(void)
     return;
 }
 
+
+
+void
+sprintf_item_name(char *         name,
+                  const item_t * item)
+{
+
+    switch (item->tier) {
+    case GOOD:
+        sprintf(name, "\e[1;32m%s\e[0m", item->name);
+        break;
+
+    case RARE:
+        sprintf(name, "\e[1;34m%s\e[0m", item->name);
+        break;
+
+    case EPIC:
+        sprintf(name, "\e[1;35m%s\e[0m", item->name);
+        break;
+
+    case COMMON:
+    default:
+        sprintf(name, "\e[1;0m%s\e[0m", item->name);
+        break;
+    }
+
+    return;
+}
 
 
 
