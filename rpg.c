@@ -263,6 +263,9 @@ static const char * spell_prompt = "\n"
                                    "    s: shadow\n"
                                    "    u: non-elemental\n";
 
+// TODO: different lists of prefixes and suffixes, maybe germanic,
+//       norse, etc? Different combinations for different mobs.
+
 #define MAX_PREFIX (50)
 static const char * prefix_list[MAX_PREFIX] = {
     "ab", "ae", "ag", "am", "an", "ba", "be", "bi", "bo", "bu",
@@ -287,6 +290,7 @@ static const char * suffix_list[MAX_SUFFIX] = {
 };
 
 // Length of 3 for each? To make things simpler?...
+// Main hand, offhand, and two hand.
 static const char * shields[] = { "buckler", "pavise", "targe" };
 static const char * one_hand_swords[] = { "scimitar", "sabre", "shortsword" };
 static const char * one_hand_piercing[] = { "dagger", "dirk", "shard" };
@@ -304,7 +308,7 @@ static const char * cloth_boots[] = { "sandals", "slippers", "boots" };
 // Leather
 static const char * leather_helm[] = { "hood", "hat", "hat" };
 static const char * leather_shoulders[] = { "amice", "mantle", "shoulders" };
-static const char * leather_chest[] = { "robe", "vest", "shirt" };
+static const char * leather_chest[] = { "brigandine", "vest", "shirt" };
 static const char * leather_gloves[] = { "pants", "leggings", "shorts" };
 static const char * leather_pants[] = { "pants", "leggings", "shorts" };
 static const char * leather_boots[] = { "sandals", "slippers", "boots" };
@@ -322,6 +326,9 @@ static const char * plate_chest[] = { "breastplate", "vest", "shirt" };
 static const char * plate_gloves[] = { "gauntlets", "leggings", "shorts" };
 static const char * plate_pants[] = { "pants", "leggings", "shorts" };
 static const char * plate_boots[] = { "sabatons", "slippers", "boots" };
+// Trinkets and rings
+static const char * trinkets[] = { "pendant", "idol", "ankh" };
+static const char * rings[] = { "ring", "band", "seal" };
 
 // TODO: titles?
 //static const char * title_list[50] = {
@@ -695,102 +702,110 @@ gen_item_name(char *       name,
     }
 
     switch (armor_type) {
-        case CLOTH:
-            switch(slot) {
-            case HELM:
-                strcpy(name, cloth_helm[j]);
-                return;
-            case SHOULDERS:
-                strcpy(name, cloth_shoulders[j]);
-                return;
-            case CHEST:
-                strcpy(name, cloth_chest[j]);
-                return;
-            case PANTS:
-                strcpy(name, cloth_pants[j]);
-                return;
-            case GLOVES:
-                strcpy(name, cloth_gloves[j]);
-                return;
-            case BOOTS:
-            default:
-                strcpy(name, cloth_boots[j]);
-                return;
-            }
-        case LEATHER:
-            switch(slot) {
-            case HELM:
-                strcpy(name, leather_helm[j]);
-                return;
-            case SHOULDERS:
-                strcpy(name, leather_shoulders[j]);
-                return;
-            case CHEST:
-                strcpy(name, leather_chest[j]);
-                return;
-            case PANTS:
-                strcpy(name, leather_pants[j]);
-                return;
-            case GLOVES:
-                strcpy(name, leather_gloves[j]);
-                return;
-            case BOOTS:
-            default:
-                strcpy(name, leather_boots[j]);
-                return;
-            }
-        case MAIL:
-            switch(slot) {
-            case HELM:
-                strcpy(name, mail_helm[j]);
-                return;
-            case SHOULDERS:
-                strcpy(name, mail_shoulders[j]);
-                return;
-            case CHEST:
-                strcpy(name, mail_chest[j]);
-                return;
-            case PANTS:
-                strcpy(name, mail_pants[j]);
-                return;
-            case GLOVES:
-                strcpy(name, mail_gloves[j]);
-                return;
-            case BOOTS:
-            default:
-                strcpy(name, mail_boots[j]);
-                return;
-            }
-        case PLATE:
-            switch(slot) {
-            case HELM:
-                strcpy(name, plate_helm[j]);
-                return;
-            case SHOULDERS:
-                strcpy(name, plate_shoulders[j]);
-                return;
-            case CHEST:
-                strcpy(name, plate_chest[j]);
-                return;
-            case PANTS:
-                strcpy(name, plate_pants[j]);
-                return;
-            case GLOVES:
-                strcpy(name, plate_gloves[j]);
-                return;
-            case BOOTS:
-            default:
-                strcpy(name, plate_boots[j]);
-                return;
-            }
-        case SHIELD:
-            strcpy(name, shields[j]);
+    case CLOTH:
+        switch(slot) {
+        case HELM:
+            strcpy(name, cloth_helm[j]);
+            return;
+        case SHOULDERS:
+            strcpy(name, cloth_shoulders[j]);
+            return;
+        case CHEST:
+            strcpy(name, cloth_chest[j]);
+            return;
+        case PANTS:
+            strcpy(name, cloth_pants[j]);
+            return;
+        case GLOVES:
+            strcpy(name, cloth_gloves[j]);
+            return;
+        case BOOTS:
+        default:
+            strcpy(name, cloth_boots[j]);
+            return;
+        }
+    case LEATHER:
+        switch(slot) {
+        case HELM:
+            strcpy(name, leather_helm[j]);
+            return;
+        case SHOULDERS:
+            strcpy(name, leather_shoulders[j]);
+            return;
+        case CHEST:
+            strcpy(name, leather_chest[j]);
+            return;
+        case PANTS:
+            strcpy(name, leather_pants[j]);
+            return;
+        case GLOVES:
+            strcpy(name, leather_gloves[j]);
+            return;
+        case BOOTS:
+        default:
+            strcpy(name, leather_boots[j]);
+            return;
+        }
+    case MAIL:
+        switch(slot) {
+        case HELM:
+            strcpy(name, mail_helm[j]);
+            return;
+        case SHOULDERS:
+            strcpy(name, mail_shoulders[j]);
+            return;
+        case CHEST:
+            strcpy(name, mail_chest[j]);
+            return;
+        case PANTS:
+            strcpy(name, mail_pants[j]);
+            return;
+        case GLOVES:
+            strcpy(name, mail_gloves[j]);
+            return;
+        case BOOTS:
+        default:
+            strcpy(name, mail_boots[j]);
+            return;
+        }
+    case PLATE:
+        switch(slot) {
+        case HELM:
+            strcpy(name, plate_helm[j]);
+            return;
+        case SHOULDERS:
+            strcpy(name, plate_shoulders[j]);
+            return;
+        case CHEST:
+            strcpy(name, plate_chest[j]);
+            return;
+        case PANTS:
+            strcpy(name, plate_pants[j]);
+            return;
+        case GLOVES:
+            strcpy(name, plate_gloves[j]);
+            return;
+        case BOOTS:
+        default:
+            strcpy(name, plate_boots[j]);
+            return;
+        }
+    case SHIELD:
+        strcpy(name, shields[j]);
+        return;
+
+    case MISC:
+    default:
+        switch (slot) {
+        case RING:
+            strcpy(name, rings[j]);
             return;
 
-        case MISC:
+        case TRINKET:
         default:
-            strcpy(name, shields[j]);
+            strcpy(name, trinkets[j]);
             return;
+        }
     }
 
     return;
@@ -830,7 +845,7 @@ gen_item_armor(const size_t level,
         break;
     case MISC:
     default:
-        multiplier = 1.0;
+        multiplier = 0.5;
         break;
     }
 
@@ -860,16 +875,12 @@ spawn_item_drop(hero_t * h)
     case 0:
         new_item = gen_item(0, h->level, 0, RANDOM_A, RANDOM_S);
 
-        //h->items[new_item.slot] = new_item;
-        //h->have_item[new_item.slot] = 1;
-
         break;
 
     case 1:
         memset(&new_item, 0, sizeof(new_item));
         new_item.slot = HP_POTION;
         sprintf(new_item.name, "Health Potion");
-        //add_to_inventory(h, &new_item);
         break;
 
     case 2:
@@ -877,10 +888,8 @@ spawn_item_drop(hero_t * h)
         memset(&new_item, 0, sizeof(new_item));
         new_item.slot = MP_POTION;
         sprintf(new_item.name, "Mana Potion");
-        //add_to_inventory(h, &new_item);
         break;
     }
-    new_item = gen_item(0, h->level, 0, RANDOM_A, RANDOM_S);
 
     choose_inventory(h, &new_item);
 
@@ -1136,6 +1145,9 @@ get_spell_dmg(const hero_t *  h,
     //   dmg = (total wisdom) * (spell multiplier)
     //
     // where the spell multiplier is 3.
+    //
+    // TODO: spell mult of 3 is possibly OP. 2 instead?
+    //
     float dmg = 0;
     float wis = 0;
     float mult = 3;
@@ -2204,6 +2216,7 @@ choose_inventory(hero_t * h,
         else {
             switch (act_var) {
             case 'a':
+                // TODO: need to make consumables stack.
                 done = add_to_inventory(h, new_item);
                 break;
 
@@ -2219,6 +2232,8 @@ choose_inventory(hero_t * h,
                 break;
 
             case 'e':
+                // TODO: need to handle 2 hand being exclusive with one
+                //       hand and offhand.
                 if (selection >= 0) {
                     if (!h->have_inventory[selection]) {
                         // Can't equip something from inventory
