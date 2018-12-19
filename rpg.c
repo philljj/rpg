@@ -158,7 +158,6 @@ struct hero_t {
     item_t  items[MAX_ITEMS];       // Equipped items.
     size_t  have_item[MAX_ITEMS];
     item_t  inventory[MAX_INVENTORY];
-    size_t  have_inventory[MAX_INVENTORY];
  // item_t  buffs[MAX_BUFFS];       // Placeholder, not sure about this.
 };
 
@@ -198,8 +197,12 @@ size_t get_max_mp(hero_t * h);
 // Print functions.
 void         print_hero(hero_t * h, const size_t verbosity);
 void         print_equip(hero_t * h);
-size_t       add_to_inventory(hero_t * h, const item_t * new_item);
+item_t *     add_to_inventory(hero_t * h, item_t * new_item);
 void         choose_inventory(hero_t * h, item_t * new_item);
+void         equip_from_inventory(hero_t * h, const int selection,
+                                  item_t * new_item);
+void         use_from_inventory(hero_t * h, const int selection,
+                                item_t *  new_item);
 void         print_inventory(const hero_t * h, const int selected,
                              const item_t * new_item);
 void         print_selection(const hero_t * h, const int selected,
@@ -253,8 +256,7 @@ static const char * action_prompt = "\n"
                                     "    s: spell\n"
                                     "    d: defend\n"
                                     "    h: heal\n"
-                                    "    q: health potion\n"
-                                    "    m: mana potion\n";
+                                    "    i: inventory\n";
 
 static const char * spell_prompt = "\n"
                                    "  choose spell:\n"
@@ -571,11 +573,25 @@ gen_item(const char * name,
     size_t power_lvl = 10;
     size_t procs_lvl = 20;
     size_t shift_lvl = level + 1;
-    size_t tier = rand() % 4;
 
     memset(&item, 0, sizeof(item));
 
-    item.tier = tier;
+    {
+        size_t trigger = rand() % 101;
+
+        if (trigger < 50) {
+            item.tier = COMMON;
+        }
+        else if (trigger < 85) {
+            item.tier = GOOD;
+        }
+        else if (trigger < 95) {
+            item.tier = RARE;
+        }
+        else {
+            item.tier = EPIC;
+        }
+    }
 
     // is_weapon has priority over slot_t and armor_t.
     // armor_t has priority over slot_t.
@@ -624,18 +640,40 @@ gen_item(const char * name,
         gen_item_name(item.name, is_weapon, armor_type, slot);
     }
 
-
     item.slot = slot;
     item.is_weapon = is_weapon;
-    item.armor = gen_item_armor(level, is_weapon, armor_type);
-    //item.armor = rand() % shift_lvl;
+
+    float tier_mult = 0;
+
+    switch (item.tier) {
+    case GOOD:
+        tier_mult = 0.5;
+        break;
+
+    case RARE:
+        tier_mult = 1.0;
+        break;
+
+    case EPIC:
+        tier_mult = 2.0;
+        break;
+
+    case COMMON:
+    default:
+        tier_mult = 0.25;
+        break;
+    }
+
+    item.armor = (size_t) floor(tier_mult * (float) gen_item_armor(level,
+                                                                   is_weapon,
+                                                                   armor_type));
 
     if (level > attr_lvl) {
-        item.attr.sta = rand() % (shift_lvl - attr_lvl);
-        item.attr.str = rand() % (shift_lvl - attr_lvl);
-        item.attr.agi = rand() % (shift_lvl - attr_lvl);
-        item.attr.wis = rand() % (shift_lvl - attr_lvl);
-        item.attr.spr = rand() % (shift_lvl - attr_lvl);
+        item.attr.sta = floor(tier_mult * (float) (rand() % (shift_lvl - attr_lvl)));
+        item.attr.str = floor(tier_mult * (float) (rand() % (shift_lvl - attr_lvl)));
+        item.attr.agi = floor(tier_mult * (float) (rand() % (shift_lvl - attr_lvl)));
+        item.attr.wis = floor(tier_mult * (float) (rand() % (shift_lvl - attr_lvl)));
+        item.attr.spr = floor(tier_mult * (float) (rand() % (shift_lvl - attr_lvl)));
     }
 
     if (level > resist_lvl) {
@@ -1543,7 +1581,7 @@ cure(hero_t * h)
 
     printf("%s healed %s for %zu hp\n", what, h->name, n);
 
-    return n;
+    return 1;
 }
 
 
@@ -1793,6 +1831,19 @@ decision_loop(hero_t * hero,
 
             break;
 
+        case 'i':
+            choose_inventory(hero, 0);
+
+            move_cursor(1, 1);
+            del_eof();
+            reset_cursor();
+
+            print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
+            print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
+
+
+            break;
+
         default:
             printf("error: invalid input %c\n", act_var);
             break;
@@ -2006,8 +2057,8 @@ print_equip(hero_t * h)
 {
     printf("name:  %s\n", h->name);
     printf("level: %zu\n", h->level);
-    printf("hp:    %zu\n", get_max_hp(h));
-    printf("mp:    %zu\n", get_max_mp(h));
+    printf("hp:    %zu / %zu\n", h->hp, get_max_hp(h));
+    printf("mp:    %zu / %zu\n", h->mp, get_max_mp(h));
     printf("\n");
     printf("sta:   %zu\n", h->base.sta);
     printf("str:   %zu\n", h->base.str);
@@ -2154,21 +2205,28 @@ print_portrait(hero_t *     h,
 
 
 
-size_t
-add_to_inventory(hero_t *       h,
-                 const item_t * new_item)
+item_t *
+add_to_inventory(hero_t * h,
+                 item_t * new_item)
 {
-    for (size_t i = 0; i < MAX_INVENTORY; ++i) {
-        if (!h->have_inventory[i]) {
-            h->inventory[i] = *new_item;
-            h->have_inventory[i] = 1;
+    // TODO: need to make consumables stack.
+    if (!new_item) {
+        return 0;
+    }
 
-            return 1;
+    for (size_t i = 0; i < MAX_INVENTORY; ++i) {
+        if (h->inventory[i].slot == NO_ITEM) {
+            h->inventory[i] = *new_item;
+
+            memset(new_item, 0, sizeof(item_t));
+            new_item->slot = NO_ITEM;
+
+            return 0;
         }
     }
 
     // Inventory full.
-    return 0;
+    return new_item;
 }
 
 
@@ -2177,6 +2235,8 @@ void
 choose_inventory(hero_t * h,
                  item_t * new_item)
 {
+    // TODO: what is new_item is null because this menu
+    //       was pulled in battle.
     size_t done = 0;
     int    selection = -1;
 
@@ -2216,74 +2276,29 @@ choose_inventory(hero_t * h,
         else {
             switch (act_var) {
             case 'a':
-                // TODO: need to make consumables stack.
-                done = add_to_inventory(h, new_item);
+                new_item = add_to_inventory(h, new_item);
                 break;
 
             case 'd':
                 if (selection < 0) {
-                    new_item->slot = NO_ITEM;
+                    if (new_item) {
+                        memset(new_item, 0, sizeof(item_t));
+                        new_item->slot = NO_ITEM;
+                    }
                 }
                 else {
+                    memset(&h->inventory[selection], 0, sizeof(item_t));
                     h->inventory[selection].slot = NO_ITEM;
-                    h->have_inventory[selection] = 0;
                 }
 
                 break;
 
             case 'e':
-                // TODO: need to handle 2 hand being exclusive with one
-                //       hand and offhand.
-                if (selection >= 0) {
-                    if (!h->have_inventory[selection]) {
-                        // Can't equip something from inventory
-                        // that's not there.
-                        break;
-                    }
-                }
+                equip_from_inventory(h, selection, new_item);
+                break;
 
-                // Get pointer to selected item, and swap equipped item
-                // with selected item.
-                item_t * s_i;
-                slot_t   s_i_slot;
-
-                if (selection < 0) {
-                    s_i = new_item;
-                    s_i_slot = new_item->slot;
-                }
-                else {
-                    s_i = &h->inventory[selection];
-                    s_i_slot = h->inventory[selection].slot;
-                }
-
-                if (s_i_slot > MAX_ITEMS - 1) {
-                    // This isn't an equippable item (It's a potion
-                    // or NO_ITEM).
-                    break;
-                }
-
-                item_t old_item = h->items[s_i_slot];
-                size_t have_old_item = h->have_item[s_i_slot];
-
-                h->items[s_i_slot] = *s_i;
-                h->have_item[s_i_slot] = 1;
-
-                if (selection < 0) {
-                    *new_item = old_item;
-
-                    if (!have_old_item) {
-                        new_item->slot = NO_ITEM;
-                    }
-                }
-                else {
-                    h->inventory[selection] = old_item;
-                    h->have_inventory[selection] = have_old_item;
-
-                    if (!have_old_item) {
-                        h->inventory[selection].slot = NO_ITEM;
-                    }
-                }
-
+            case 'u':
+                use_from_inventory(h, selection, new_item);
                 break;
 
             case 'q':
@@ -2313,13 +2328,137 @@ choose_inventory(hero_t * h,
 
 
 void
+equip_from_inventory(hero_t *  h,
+                     const int selection,
+                     item_t *  new_item)
+{
+    // TODO: need to handle 2 hand being exclusive with one
+    //       hand and offhand.
+    if (selection >= 0) {
+        if (h->inventory[selection].slot == NO_ITEM) {
+            // Can't equip something from inventory
+            // that's not there.
+            return;
+        }
+    }
+
+    // Get pointer to selected item, and swap equipped item
+    // with selected item.
+    item_t * s_i;
+    slot_t   s_i_slot;
+
+    if (selection < 0) {
+        if (!new_item) {
+            return;
+        }
+
+        s_i = new_item;
+        s_i_slot = new_item->slot;
+    }
+    else {
+        s_i = &h->inventory[selection];
+        s_i_slot = h->inventory[selection].slot;
+    }
+
+    if (s_i_slot > MAX_ITEMS - 1) {
+        // This isn't an equippable item (It's a potion
+        // or NO_ITEM).
+        return;
+    }
+
+    item_t old_item = h->items[s_i_slot];
+    size_t have_old_item = h->have_item[s_i_slot];
+
+    h->items[s_i_slot] = *s_i;
+    h->have_item[s_i_slot] = 1;
+
+    *s_i = old_item;
+
+    if (!have_old_item) {
+        memset(s_i, 0, sizeof(item_t));
+        s_i->slot = NO_ITEM;
+    }
+
+    return;
+}
+
+
+
+void
+use_from_inventory(hero_t *  h,
+                   const int selection,
+                   item_t *  new_item)
+{
+    if (selection >= 0) {
+        if (h->inventory[selection].slot == NO_ITEM) {
+            // Can't equip something from inventory
+            // that's not there.
+            return;
+        }
+    }
+
+    // Get pointer to selected item.
+    item_t * s_i;
+    slot_t   s_i_slot;
+
+    if (selection < 0) {
+        if (!new_item) {
+            return;
+        }
+
+        s_i = new_item;
+        s_i_slot = new_item->slot;
+    }
+    else {
+        s_i = &h->inventory[selection];
+        s_i_slot = h->inventory[selection].slot;
+    }
+
+    if (s_i_slot != HP_POTION && s_i_slot != MP_POTION) {
+        // This isn't a consumable.
+        return;
+    }
+
+    size_t amnt = 0;
+    switch (s_i_slot) {
+    case HP_POTION:
+        amnt = (size_t) floor(0.5 * ((float) get_max_hp(h)));
+
+        if (restore_hp(h, amnt)) {
+            memset(s_i, 0, sizeof(item_t));
+            s_i->slot = NO_ITEM;
+        }
+
+        break;
+
+    case MP_POTION:
+        amnt = (size_t) floor(0.5 * ((float) get_max_mp(h)));
+
+        if (restore_mp(h, amnt)) {
+            memset(s_i, 0, sizeof(item_t));
+            s_i->slot = NO_ITEM;
+        }
+
+        break;
+
+    default:
+        break;
+    }
+
+    return;
+}
+
+
+
+void
 print_inventory(const hero_t * h,
                 const int      selected,
                 const item_t * new_item)
 {
     char   pretty_name[MAX_NAME_LEN + 1];
 
-    {
+    // Print the new item in hand.
+    if (new_item && new_item->slot != NO_ITEM) {
         size_t row = NEW_ITEM_ROW;
         size_t col = NEW_ITEM_COL;
         size_t shift = 1;
@@ -2339,6 +2478,7 @@ print_inventory(const hero_t * h,
 
     }
 
+    // Print the rest of the inventory.
     size_t row = INVENTORY_ROW;
     size_t col = INVENTORY_COL;
     size_t shift = 1;
@@ -2390,16 +2530,17 @@ print_selection(const hero_t * h,
 
     printf("\033[%zu;%zuH Item Select", row, col);
 
-    if (item->slot == NO_ITEM) {
+    if (!item || item->slot == NO_ITEM) {
         // Nothing to print.
         return;
     }
 
     char   pretty_name[MAX_NAME_LEN + 1];
 
-    sprintf_item_name(pretty_name, new_item);
+    sprintf_item_name(pretty_name, item);
 
-    printf("\033[%zu;%zuH %s", row + 2, col, pretty_name);
+    printf("\033[%zu;%zuH %s: %s", row + 2, col,
+           slot_to_str(item->slot), pretty_name);
 
     if (item->slot == HP_POTION || item->slot == MP_POTION) {
         // No other stats to print.
@@ -2431,7 +2572,8 @@ print_inventory_prompt(void)
     printf("\033[%zu;%zuH a: add to inventory", row + 3, col);
     printf("\033[%zu;%zuH d: throw away selected item", row + 4, col);
     printf("\033[%zu;%zuH e: equip selected item", row + 5, col);
-    printf("\033[%zu;%zuH q: quit", row + 6, col);
+    printf("\033[%zu;%zuH u: use selected item", row + 6, col);
+    printf("\033[%zu;%zuH q: quit", row + 7, col);
 
     fflush(stdout);
 
