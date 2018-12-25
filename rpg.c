@@ -29,7 +29,7 @@
 #define ARMOR_HALF_POINT     (200) // Armor required for 50% melee reduction.
 #define DODGE_HALF_POINT     (500) // Agility required for 50% dodge.
 #define BASE_STAT            (7)
-#define BASE_STAT_VAR        (3)
+#define BASE_STAT_VAR        (7)
 
 #define BATTLE_TXT_ROW       (13)
 #define BATTLE_TXT_COL       (4)
@@ -60,9 +60,9 @@ typedef enum {
     HEAD      = 3,
     SHOULDERS = 4,
     CHEST     = 5,
-    LEGS     = 6,
-    HANDS    = 7,
-    FEET     = 8,
+    LEGS      = 6,
+    HANDS     = 7,
+    FEET      = 8,
     RING      = 9,
     TRINKET   = 10,
     HP_POTION = 20,
@@ -224,16 +224,19 @@ hero_t roll_mob(const char * name, const size_t lvl, mob_t mob);
 hero_t roll_hero(const char * name, const size_t lvl);
 hero_t roll_animal(const char * name, const size_t lvl);
 hero_t roll_dragon(const char * name, const size_t lvl);
+void   gen_base_stats(hero_t * h);
 item_t create_item(const char * name, const size_t level, const slot_t slot,
                    const size_t is_weapon);
 void   spawn_item_drop(hero_t * h);
+tier_t gen_item_tier(void);
 item_t gen_item(const char * name, const size_t level, tier_t tier,
                 size_t is_weapon, armor_t armor_type, slot_t slot,
                 weapon_t weapon_type);
 void   gen_item_name(char * name, const armor_t armor_type, const slot_t slot,
                      weapon_t weapon_type);
-size_t gen_item_armor(const size_t level, size_t is_weapon,
-                      armor_t armor_type);
+size_t gen_item_armor(const size_t level, armor_t armor_type);
+void   gen_item_set(hero_t * h, const size_t lvl,
+                    const tier_t tier, const armor_t armor_type);
 stats_t get_total_stats(const hero_t * h);
 
 
@@ -258,6 +261,7 @@ void         print_inventory_prompt(void);
 void         sprintf_item_name(char * name, const item_t * item);
 void         print_fld(const char * what, const size_t amnt);
 const char * slot_to_str(slot_t s);
+const char * armor_to_str(armor_t a);
 const char * mob_t_to_str(const mob_t m);
 const char * elem_to_str(const element_t elem);
 void         print_portrait(hero_t * h, const size_t i, const size_t j);
@@ -425,11 +429,6 @@ static const char * plate_boots[] = { "sabatons", "greaves", "footguards" };
 static const char * trinkets[] = { "pendant", "idol", "ankh" };
 static const char * rings[] = { "ring", "band", "seal" };
 
-// TODO: titles?
-//static const char * title_list[50] = {
-//    " the cruel"
-//}
-
 
 
 int
@@ -442,11 +441,11 @@ main(int    argc   __attribute__((unused)),
 
         srand(pid * t);
 
-        printf("\033[2J");
-        printf("\033[1;1H");
+        move_cursor(1, 1);
+        del_eof();
     }
 
-    size_t h_ini_lvl = 5;
+    size_t h_ini_lvl = 2;
     size_t e_ini_lvl = 1;
 
     hero_t hero = roll_hero("Tim the Enchanter", h_ini_lvl);
@@ -491,9 +490,6 @@ roll_mob(const char * name,
          const size_t lvl,
          mob_t        mob)
 {
-    // Using brute force stack allocation and return by value,
-    // because this will only be called once every few minutes.
-
     if (mob == RANDOM_M) {
         mob = rand() % (DRAGON + 1);
     }
@@ -507,7 +503,6 @@ roll_mob(const char * name,
         case DRAGON:
             return roll_dragon(name, lvl);
         default:
-            //return roll_humanoid(name, lvl);
             return roll_hero(name, lvl);
         }
     }
@@ -529,11 +524,7 @@ roll_hero(const char * name,
 
     h.level = lvl ? lvl : 1;
 
-    h.base.sta = h.level + BASE_STAT + (rand() % BASE_STAT_VAR);
-    h.base.str = h.level + BASE_STAT + (rand() % BASE_STAT_VAR);
-    h.base.agi = h.level + BASE_STAT + (rand() % BASE_STAT_VAR);
-    h.base.wis = h.level + BASE_STAT + (rand() % BASE_STAT_VAR);
-    h.base.spr = h.level + BASE_STAT + (rand() % BASE_STAT_VAR);
+    gen_base_stats(&h);
 
     if (name && *name) {
         strcpy(h.name, name);
@@ -550,6 +541,13 @@ roll_hero(const char * name,
     for (size_t i = 0; i < MAX_INVENTORY; ++i) {
         h.inventory[i].slot = NO_ITEM;
     }
+
+    h.items[MAIN_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, MAIN_HAND,
+                                   PIERCING);
+    h.items[OFF_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, OFF_HAND,
+                                   PIERCING);
+
+    gen_item_set(&h, h.level, COMMON, RANDOM_A);
 
     set_hp_mp(&h);
 
@@ -598,23 +596,14 @@ roll_animal(const char * name,
 
     h.level = lvl ? lvl : 1;
 
-    h.base.sta = h.level + BASE_STAT + (rand() % BASE_STAT_VAR);
-    h.base.str = h.level + BASE_STAT + (rand() % BASE_STAT_VAR);
-    h.base.agi = h.level + BASE_STAT + (rand() % BASE_STAT_VAR);
-    h.base.wis = h.level + BASE_STAT + (rand() % BASE_STAT_VAR);
-    h.base.spr = h.level + BASE_STAT + (rand() % BASE_STAT_VAR);
+    gen_base_stats(&h);
 
     switch (h.sub_type) {
     case BEAR:
         h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
-                                      BLUNT);
+                                     BLUNT);
 
-        h.items[HEAD] = gen_item(0, h.level, COMMON, 0, PLATE, HEAD, 0);
-        h.items[SHOULDERS] = gen_item(0, h.level, COMMON, 0, PLATE, SHOULDERS, 0);
-        h.items[CHEST] = gen_item(0, h.level, COMMON, 0, PLATE, CHEST, 0);
-        h.items[LEGS] = gen_item(0, h.level, COMMON, 0, PLATE, LEGS, 0);
-        h.items[HANDS] = gen_item(0, h.level, COMMON, 0, PLATE, HANDS, 0);
-        h.items[FEET] = gen_item(0, h.level, COMMON, 0, PLATE, FEET, 0);
+        gen_item_set(&h, h.level, COMMON, PLATE);
 
         break;
 
@@ -622,12 +611,7 @@ roll_animal(const char * name,
         h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                      EDGED);
 
-        h.items[HEAD] = gen_item(0, h.level, COMMON, 0, MAIL, HEAD, 0);
-        h.items[SHOULDERS] = gen_item(0, h.level, COMMON, 0, MAIL, SHOULDERS, 0);
-        h.items[CHEST] = gen_item(0, h.level, COMMON, 0, MAIL, CHEST, 0);
-        h.items[LEGS] = gen_item(0, h.level, COMMON, 0, MAIL, LEGS, 0);
-        h.items[HANDS] = gen_item(0, h.level, COMMON, 0, MAIL, HANDS, 0);
-        h.items[FEET] = gen_item(0, h.level, COMMON, 0, MAIL, FEET, 0);
+        gen_item_set(&h, h.level, COMMON, MAIL);
 
         break;
 
@@ -635,12 +619,7 @@ roll_animal(const char * name,
         h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                      PIERCING);
 
-        h.items[HEAD] = gen_item(0, h.level, COMMON, 0, LEATHER, HEAD, 0);
-        h.items[SHOULDERS] = gen_item(0, h.level, COMMON, 0, LEATHER, SHOULDERS, 0);
-        h.items[CHEST] = gen_item(0, h.level, COMMON, 0, LEATHER, CHEST, 0);
-        h.items[LEGS] = gen_item(0, h.level, COMMON, 0, LEATHER, LEGS, 0);
-        h.items[HANDS] = gen_item(0, h.level, COMMON, 0, LEATHER, HANDS, 0);
-        h.items[FEET] = gen_item(0, h.level, COMMON, 0, LEATHER, FEET, 0);
+        gen_item_set(&h, h.level, COMMON, LEATHER);
 
         break;
 
@@ -652,12 +631,7 @@ roll_animal(const char * name,
         h.items[OFF_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, OFF_HAND,
                                        PIERCING);
 
-        h.items[HEAD] = gen_item(0, h.level, COMMON, 0, CLOTH, HEAD, 0);
-        h.items[SHOULDERS] = gen_item(0, h.level, COMMON, 0, CLOTH, SHOULDERS, 0);
-        h.items[CHEST] = gen_item(0, h.level, COMMON, 0, CLOTH, CHEST, 0);
-        h.items[LEGS] = gen_item(0, h.level, COMMON, 0, CLOTH, LEGS, 0);
-        h.items[HANDS] = gen_item(0, h.level, COMMON, 0, CLOTH, HANDS, 0);
-        h.items[FEET] = gen_item(0, h.level, COMMON, 0, CLOTH, FEET, 0);
+        gen_item_set(&h, h.level, COMMON, CLOTH);
 
         break;
     }
@@ -711,23 +685,14 @@ roll_dragon(const char * name,
 
     h.level = lvl ? lvl : 1;
 
-    h.base.sta = h.level + BASE_STAT + (rand() % BASE_STAT_VAR);
-    h.base.str = h.level + BASE_STAT + (rand() % BASE_STAT_VAR);
-    h.base.agi = h.level + BASE_STAT + (rand() % BASE_STAT_VAR);
-    h.base.wis = h.level + BASE_STAT + (rand() % BASE_STAT_VAR);
-    h.base.spr = h.level + BASE_STAT + (rand() % BASE_STAT_VAR);
+    gen_base_stats(&h);
 
     switch (h.sub_type) {
     case FOREST_DRAGON:
         h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                       BLUNT);
 
-        h.items[HEAD] = gen_item(0, h.level, COMMON, 0, LEATHER, HEAD, 0);
-        h.items[SHOULDERS] = gen_item(0, h.level, COMMON, 0, LEATHER, SHOULDERS, 0);
-        h.items[CHEST] = gen_item(0, h.level, COMMON, 0, LEATHER, CHEST, 0);
-        h.items[LEGS] = gen_item(0, h.level, COMMON, 0, LEATHER, LEGS, 0);
-        h.items[HANDS] = gen_item(0, h.level, COMMON, 0, LEATHER, HANDS, 0);
-        h.items[FEET] = gen_item(0, h.level, COMMON, 0, LEATHER, FEET, 0);
+        gen_item_set(&h, h.level, COMMON, LEATHER);
 
         break;
 
@@ -735,12 +700,7 @@ roll_dragon(const char * name,
         h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                      EDGED);
 
-        h.items[HEAD] = gen_item(0, h.level, COMMON, 0, MAIL, HEAD, 0);
-        h.items[SHOULDERS] = gen_item(0, h.level, COMMON, 0, MAIL, SHOULDERS, 0);
-        h.items[CHEST] = gen_item(0, h.level, COMMON, 0, MAIL, CHEST, 0);
-        h.items[LEGS] = gen_item(0, h.level, COMMON, 0, MAIL, LEGS, 0);
-        h.items[HANDS] = gen_item(0, h.level, COMMON, 0, MAIL, HANDS, 0);
-        h.items[FEET] = gen_item(0, h.level, COMMON, 0, MAIL, FEET, 0);
+        gen_item_set(&h, h.level, COMMON, MAIL);
 
         break;
 
@@ -748,12 +708,7 @@ roll_dragon(const char * name,
         h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                      PIERCING);
 
-        h.items[HEAD] = gen_item(0, h.level, COMMON, 0, LEATHER, HEAD, 0);
-        h.items[SHOULDERS] = gen_item(0, h.level, COMMON, 0, LEATHER, SHOULDERS, 0);
-        h.items[CHEST] = gen_item(0, h.level, COMMON, 0, LEATHER, CHEST, 0);
-        h.items[LEGS] = gen_item(0, h.level, COMMON, 0, LEATHER, LEGS, 0);
-        h.items[HANDS] = gen_item(0, h.level, COMMON, 0, LEATHER, HANDS, 0);
-        h.items[FEET] = gen_item(0, h.level, COMMON, 0, LEATHER, FEET, 0);
+        gen_item_set(&h, h.level, COMMON, LEATHER);
 
         break;
 
@@ -764,12 +719,7 @@ roll_dragon(const char * name,
         h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                      PIERCING);
 
-        h.items[HEAD] = gen_item(0, h.level, COMMON, 0, PLATE, HEAD, 0);
-        h.items[SHOULDERS] = gen_item(0, h.level, COMMON, 0, PLATE, SHOULDERS, 0);
-        h.items[CHEST] = gen_item(0, h.level, COMMON, 0, PLATE, CHEST, 0);
-        h.items[LEGS] = gen_item(0, h.level, COMMON, 0, PLATE, LEGS, 0);
-        h.items[HANDS] = gen_item(0, h.level, COMMON, 0, PLATE, HANDS, 0);
-        h.items[FEET] = gen_item(0, h.level, COMMON, 0, PLATE, FEET, 0);
+        gen_item_set(&h, h.level, COMMON, PLATE);
 
         break;
 
@@ -780,12 +730,7 @@ roll_dragon(const char * name,
         h.items[OFF_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, OFF_HAND,
                                        PIERCING);
 
-        h.items[HEAD] = gen_item(0, h.level, COMMON, 0, CLOTH, HEAD, 0);
-        h.items[SHOULDERS] = gen_item(0, h.level, COMMON, 0, CLOTH, SHOULDERS, 0);
-        h.items[CHEST] = gen_item(0, h.level, COMMON, 0, CLOTH, CHEST, 0);
-        h.items[LEGS] = gen_item(0, h.level, COMMON, 0, CLOTH, LEGS, 0);
-        h.items[HANDS] = gen_item(0, h.level, COMMON, 0, CLOTH, HANDS, 0);
-        h.items[FEET] = gen_item(0, h.level, COMMON, 0, CLOTH, FEET, 0);
+        gen_item_set(&h, h.level, COMMON, CLOTH);
 
         break;
     }
@@ -793,6 +738,20 @@ roll_dragon(const char * name,
     set_hp_mp(&h);
 
     return h;
+}
+
+
+
+void
+gen_base_stats(hero_t * h)
+{
+    h->base.sta = h->level + BASE_STAT + (rand() % BASE_STAT_VAR);
+    h->base.str = h->level + BASE_STAT + (rand() % BASE_STAT_VAR);
+    h->base.agi = h->level + BASE_STAT + (rand() % BASE_STAT_VAR);
+    h->base.wis = h->level + BASE_STAT + (rand() % BASE_STAT_VAR);
+    h->base.spr = h->level + BASE_STAT + (rand() % BASE_STAT_VAR);
+
+    return;
 }
 
 
@@ -806,32 +765,17 @@ gen_item(const char * name,
          slot_t       slot,
          weapon_t     weapon_type)
 {
-    // Using brute force stack allocation and return by value,
-    // because this will only be called once every few minutes.
     item_t item;
-    size_t attr_lvl = 0;
-    size_t resist_lvl = 5;
-    size_t power_lvl = 10;
-    size_t procs_lvl = 20;
     size_t shift_lvl = level + 1;
+    size_t attr_lvl = shift_lvl > 0 ? shift_lvl - 0 : 1;
+    size_t res_lvl = shift_lvl > 10 ? shift_lvl - 10 : 1;
+    size_t pow_lvl = shift_lvl > 15 ? shift_lvl - 15 : 1;
+    size_t procs_lvl = 20;
 
     memset(&item, 0, sizeof(item));
 
     if (tier == RANDOM_TIER) {
-        size_t trigger = rand() % 101;
-
-        if (trigger < 50) {
-            item.tier = COMMON;
-        }
-        else if (trigger < 85) {
-            item.tier = GOOD;
-        }
-        else if (trigger < 95) {
-            item.tier = RARE;
-        }
-        else {
-            item.tier = EPIC;
-        }
+        item.tier = gen_item_tier();
     }
     else {
         item.tier = tier;
@@ -850,6 +794,7 @@ gen_item(const char * name,
     }
 
     if (slot == RANDOM_S) {
+        // Determine slot from armor_type.
         switch (armor_type) {
         case WEAPON:
             // Any of 0-2 slot_t.
@@ -879,6 +824,9 @@ gen_item(const char * name,
         }
     }
 
+    item.slot = slot;
+    item.armor_type = armor_type;
+
     if (name && *name) {
         strcpy(item.name, name);
     }
@@ -886,24 +834,18 @@ gen_item(const char * name,
         gen_item_name(item.name, armor_type, slot, weapon_type);
     }
 
-    item.slot = slot;
-    item.armor_type = armor_type;
-
     float tier_mult = 0;
 
     switch (item.tier) {
     case GOOD:
         tier_mult = 0.5;
         break;
-
     case RARE:
         tier_mult = 1.0;
         break;
-
     case EPIC:
         tier_mult = 2.0;
         break;
-
     case COMMON:
     default:
         tier_mult = 0.25;
@@ -911,27 +853,57 @@ gen_item(const char * name,
     }
 
     item.armor = (size_t) floor(tier_mult * (float) gen_item_armor(level,
-                                                                   is_weapon,
                                                                    armor_type));
 
-    if (level > attr_lvl) {
-        item.attr.sta = floor(tier_mult * (float) (rand() % (shift_lvl - attr_lvl)));
-        item.attr.str = floor(tier_mult * (float) (rand() % (shift_lvl - attr_lvl)));
-        item.attr.agi = floor(tier_mult * (float) (rand() % (shift_lvl - attr_lvl)));
-        item.attr.wis = floor(tier_mult * (float) (rand() % (shift_lvl - attr_lvl)));
-        item.attr.spr = floor(tier_mult * (float) (rand() % (shift_lvl - attr_lvl)));
+    float sta_mult = 1;
+    float str_mult = 1;
+    float agi_mult = 1;
+    float wis_mult = 1;
+    float spr_mult = 1;
+
+    switch (armor_type) {
+        case PLATE:         // Plate is slow.
+            sta_mult = 2.0;
+            str_mult = 1.5;
+            agi_mult = 0.5;
+            break;
+        case MAIL:          // Mail is a compromise.
+            sta_mult = 1.5;
+            str_mult = 1.5;
+            agi_mult = 1.5;
+            break;
+        case LEATHER:       // Max dodge and melee damage.
+            str_mult = 1.5;
+            agi_mult = 2.0;
+            wis_mult = 1.5;
+            break;
+        case CLOTH:
+            agi_mult = 1.5; // Max regen, and spell power, resist.
+            wis_mult = 2.0;
+            spr_mult = 1.5;
+            break;
+        default:
+            break;
     }
 
-    if (level > resist_lvl) {
-        item.resist.fire = rand() % (shift_lvl - resist_lvl);
-        item.resist.frost = rand() % (shift_lvl - resist_lvl);
-        item.resist.shadow = rand() % (shift_lvl - resist_lvl);
+    if (level > 0) {
+        item.attr.sta = floor(sta_mult * tier_mult * (float) (rand() % (attr_lvl)));
+        item.attr.str = floor(str_mult * tier_mult * (float) (rand() % (attr_lvl)));
+        item.attr.agi = floor(agi_mult * tier_mult * (float) (rand() % (attr_lvl)));
+        item.attr.wis = floor(wis_mult * tier_mult * (float) (rand() % (attr_lvl)));
+        item.attr.spr = floor(spr_mult * tier_mult * (float) (rand() % (attr_lvl)));
     }
 
-    if (level > power_lvl) {
-        item.power.fire = rand() % (shift_lvl - power_lvl);
-        item.power.frost = rand() % (shift_lvl - power_lvl);
-        item.power.shadow = rand() % (shift_lvl - power_lvl);
+    if (level > 10) {
+        item.resist.fire = floor(wis_mult * tier_mult * (float) (rand() % (res_lvl)));
+        item.resist.frost = floor(wis_mult * tier_mult * (float) (rand() % (res_lvl)));
+        item.resist.shadow = floor(wis_mult * tier_mult * (float) (rand() % (res_lvl)));
+    }
+
+    if (level > 15) {
+        item.power.fire = floor(wis_mult * tier_mult * (float) (rand() % (pow_lvl)));
+        item.power.frost = floor(wis_mult * tier_mult * (float) (rand() % (pow_lvl)));
+        item.power.shadow = floor(wis_mult * tier_mult * (float) (rand() % (pow_lvl)));
     }
 
     if (level > procs_lvl) {
@@ -939,6 +911,27 @@ gen_item(const char * name,
     }
 
     return item;
+}
+
+
+
+tier_t
+gen_item_tier(void)
+{
+    size_t trigger = rand() % 101;
+
+    if (trigger < 50) {
+        return COMMON;
+    }
+    else if (trigger < 85) {
+        return GOOD;
+    }
+    else if (trigger < 95) {
+        return RARE;
+    }
+    else {
+        return EPIC;
+    }
 }
 
 
@@ -1097,15 +1090,8 @@ gen_item_name(char *         name,
 
 size_t
 gen_item_armor(const size_t level,
-               const size_t is_weapon,
                armor_t      armor_type)
 {
-    // TODO: adjust stats based on armor? Cloth has caster stats, e.g.
-    //       Plate should have lower stats in general to compensate for armor.
-    if (is_weapon) {
-        return 0;
-    }
-
     float base_armor = level + (rand() % level);
     float multiplier = 1.0;
 
@@ -1125,15 +1111,61 @@ gen_item_armor(const size_t level,
     case SHIELD:
         multiplier = 5.0;
         break;
+    case WEAPON:
+        multiplier = 0;
+        break;
     case MISC:
     default:
-        multiplier = 0.5;
+        multiplier = 0.3;
         break;
     }
 
-    size_t final_armor = (size_t) floor(base_armor * multiplier);
+    size_t final_armor = (size_t) floor(multiplier * base_armor);
 
     return final_armor;
+}
+
+
+
+void
+gen_item_set(hero_t *      h,
+             const size_t  lvl,
+             const tier_t  tier,
+             const armor_t armor_type)
+{
+    tier_t  i_tier;
+    size_t  i_lvl;
+    armor_t i_armor_type;
+
+    if (lvl) {
+        i_lvl = lvl;
+    }
+    else {
+        i_lvl = h->level;
+    }
+
+    if (tier == RANDOM_TIER) {
+        i_tier = gen_item_tier();
+    }
+    else {
+        i_tier = tier;
+    }
+
+    if (armor_type == RANDOM_A) {
+        i_armor_type = rand() % (PLATE + 1);
+    }
+    else {
+        i_armor_type = armor_type;
+    }
+
+    h->items[HEAD] = gen_item(0, i_lvl, COMMON, 0, i_armor_type, HEAD, 0);
+    h->items[SHOULDERS] = gen_item(0, i_lvl, COMMON, 0, i_armor_type, SHOULDERS, 0);
+    h->items[CHEST] = gen_item(0, i_lvl, COMMON, 0, i_armor_type, CHEST, 0);
+    h->items[LEGS] = gen_item(0, i_lvl, COMMON, 0, i_armor_type, LEGS, 0);
+    h->items[HANDS] = gen_item(0, i_lvl, COMMON, 0, i_armor_type, HANDS, 0);
+    h->items[FEET] = gen_item(0, i_lvl, COMMON, 0, i_armor_type, FEET, 0);
+
+    return;
 }
 
 
@@ -1388,11 +1420,6 @@ get_melee_dmg(const hero_t * h,
         break;
 
     default:
-        // This shouldn't happen.
-        return 0;
-    }
-
-    if (weapon->armor_type != WEAPON) {
         mult = UNARMED_MULT;
     }
 
@@ -2059,6 +2086,7 @@ battle(hero_t * hero,
         }
 
         enemy->attack(enemy, hero);
+        ++row_;
 
         print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
         print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
@@ -2072,6 +2100,7 @@ battle(hero_t * hero,
         if (regen_ctr == 2) {
             regen(hero);
             regen(enemy);
+            ++row_;
 
             ++row_;
             ++row_;
@@ -2408,7 +2437,8 @@ print_equip(hero_t * h)
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
         sprintf_item_name(pretty_name, &h->items[i]);
 
-        printf("  %s: \e[1;32m%s\e[0m\n", slot_to_str(i), pretty_name);
+        printf("  %s: \e[1;32m%s\e[0m (%s)\n", slot_to_str(i), pretty_name,
+               armor_to_str(h->items[i].armor_type));
     }
 
     fflush(stdout);
@@ -2477,6 +2507,25 @@ slot_to_str(slot_t s)
 
     default:
         return "NA";
+    }
+}
+
+
+
+const char *
+armor_to_str(armor_t a)
+{
+    switch (a) {
+    case CLOTH:
+        return "cloth";
+    case LEATHER:
+        return "leather";
+    case MAIL:
+        return "mail";
+    case PLATE:
+        return "plate";
+    default:
+        return "";
     }
 }
 
