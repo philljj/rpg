@@ -161,7 +161,6 @@ typedef struct {
     tier_t   tier; // 0 for common, 1 for good, 2 rare, 3 epic, 4 legendary?
 } item_t;
 
-
 typedef enum {
     HERO      = 0,
     HUMANOID  = 1,
@@ -180,6 +179,18 @@ typedef enum {
     BEAR          = 4,
     RANDOM_ANIMAL = 99
 } animal_t;
+
+typedef enum {
+    THIEF           = 0, // cloth, leather, one hand
+    BARBARIAN       = 1, // cloth, leather, two hand
+    SOLDIER         = 2, // mail, shield, one hand
+    PRIEST          = 3, // cloth, leather, restoration
+    DRUID           = 4, // cloth, leather, mail, shapeshifting
+    WIZARD          = 5, // cloth, leather, spell
+    NECROMANCER     = 6, // cloth, leather, shadow life drain
+    KNIGHT          = 7, // plate, shield, one hand, or two hand
+    RANDOM_HUMANOID = 99
+} humanoid_t;
 
 typedef enum {
     WHELPLING     = 0,
@@ -218,10 +229,10 @@ struct hero_t {
 
 typedef struct hero_t hero_t;
 
-
 // Basic mob gen functions.
 hero_t roll_mob(const char * name, const size_t lvl, mob_t mob);
 hero_t roll_hero(const char * name, const size_t lvl);
+hero_t roll_humanoid(const char * name, const size_t lvl);
 hero_t roll_animal(const char * name, const size_t lvl);
 hero_t roll_dragon(const char * name, const size_t lvl);
 void   gen_base_stats(hero_t * h);
@@ -491,19 +502,19 @@ roll_mob(const char * name,
          mob_t        mob)
 {
     if (mob == RANDOM_M) {
-        mob = rand() % (DRAGON + 1);
+        mob = 1 + rand() % (DRAGON);
     }
 
     for (;;) {
         switch (mob) {
-        case HERO:
-            return roll_hero(name, lvl);
+        case HUMANOID:
+            return roll_humanoid(name, lvl);
         case ANIMAL:
             return roll_animal(name, lvl);
         case DRAGON:
             return roll_dragon(name, lvl);
         default:
-            return roll_hero(name, lvl);
+            return roll_humanoid(name, lvl);
         }
     }
 }
@@ -553,6 +564,123 @@ roll_hero(const char * name,
 
     return h;
 }
+
+
+
+hero_t
+roll_humanoid(const char * name,
+              const size_t lvl)
+{
+    hero_t h;
+
+    memset(&h, 0, sizeof(h));
+
+    h.mob_type = HUMANOID;
+    h.sub_type = rand() % (KNIGHT + 1);
+
+    h.attack = weapon_attack;
+    h.spell = spell_enemy;
+    h.heal = cure;
+
+    h.level = lvl ? lvl : 1;
+
+    gen_base_stats(&h);
+
+    if (name && *name) {
+        strcpy(h.name, name);
+    }
+    else {
+        switch (h.sub_type) {
+        case BARBARIAN:
+            strcpy(h.name, "barbarian");
+            break;
+        case SOLDIER:
+            strcpy(h.name, "soldier");
+            break;
+        case PRIEST:
+            strcpy(h.name, "priest");
+            break;
+        case WIZARD:
+            strcpy(h.name, "wizard");
+            break;
+        case KNIGHT:
+            strcpy(h.name, "knight");
+            break;
+        default:
+            strcpy(h.name, "thief");
+            break;
+        }
+    }
+
+    for (size_t i = 0; i < MAX_ITEMS; ++i) {
+        h.items[i].slot = NO_ITEM;
+    }
+
+    switch (h.sub_type) {
+    case BARBARIAN:
+        h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+                                     RANDOM_W);
+        h.have_item[TWO_HAND] = 1;
+
+        gen_item_set(&h, h.level, COMMON, LEATHER);
+
+        break;
+
+    case SOLDIER:
+        h.items[MAIN_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, MAIN_HAND,
+                                     RANDOM_W);
+        h.items[OFF_HAND] = gen_item(0, h.level, COMMON, 0, SHIELD, OFF_HAND,
+                                     NO_WEAPON);
+        h.have_item[MAIN_HAND] = 1;
+        h.have_item[OFF_HAND] = 1;
+
+        gen_item_set(&h, h.level, COMMON, MAIL);
+
+        break;
+
+    case WIZARD:
+    case PRIEST:
+        h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+                                     BLUNT);
+        h.have_item[TWO_HAND] = 1;
+
+        gen_item_set(&h, h.level, COMMON, CLOTH);
+
+        break;
+
+    case KNIGHT:
+        h.items[MAIN_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, MAIN_HAND,
+                                      RANDOM_W);
+        h.items[OFF_HAND] = gen_item(0, h.level, COMMON, 0, SHIELD, OFF_HAND,
+                                     NO_WEAPON);
+        h.have_item[MAIN_HAND] = 1;
+        h.have_item[OFF_HAND] = 1;
+
+        gen_item_set(&h, h.level, COMMON, PLATE);
+
+        break;
+
+    case THIEF:
+    default:
+        h.items[MAIN_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, MAIN_HAND,
+                                     RANDOM_W);
+        h.items[OFF_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, OFF_HAND,
+                                     PIERCING);
+
+        h.have_item[MAIN_HAND] = 1;
+        h.have_item[OFF_HAND] = 1;
+
+        gen_item_set(&h, h.level, COMMON, LEATHER);
+
+        break;
+
+    }
+
+    set_hp_mp(&h);
+
+    return h;
+}
+
 
 
 
@@ -1712,6 +1840,8 @@ void
 weapon_attack(hero_t * hero,
               hero_t * enemy)
 {
+    // This have_item thing is annoying. Also, need
+    // to print name,type of weapon on attack for debugging.
     size_t main_hand = hero->have_item[MAIN_HAND];
     size_t off_hand = hero->have_item[OFF_HAND];
     size_t two_hand = hero->have_item[TWO_HAND];
