@@ -169,6 +169,17 @@ typedef enum {
     RANDOM_DRAGON = 99
 } dragon_t;
 
+// Status type of debuff.
+typedef enum {
+    DOT           = 0, // Damage Over Time. Burn, curse, bleed, etc.
+    STUN          = 1, // Incapacitated completely.
+    SILENCE       = 2, // No spellcasting.
+    DISARM        = 3, // Disarms two hand or main hand.
+    SLOW          = 4, // Reduces agility.
+    WEAKEN        = 5, // Reduces strength.
+    RANDOM_STATUS = 99
+} db_status_t;
+
 typedef struct {
     size_t sta;  // HP
     size_t str;  // weapon damage (favors blunt and two hand)
@@ -191,6 +202,7 @@ typedef struct {
     size_t      coeff; // Multipier. 0 - 100
 } proc_t;
 
+#define MAX_DEBUFFS (16)
 typedef struct {
     char     name[MAX_NAME_LEN + 1];
     stats_t  attr;
@@ -205,6 +217,17 @@ typedef struct {
  // size_t   buff_duration; // 0 for infinite, n for rounds? Not sure about this.
     tier_t   tier;
 } item_t;
+
+// X element damage for Y rounds.
+// Stun for Y rounds.
+// Silence spell casting for Y rounds.
+typedef struct {
+    char        name[MAX_NAME_LEN + 1];
+    db_status_t status;
+    element_t   element;
+    float       amnt;
+    size_t      rounds; // Active rounds remaining. Debuff ends at 0.
+} debuff_t;
 
 struct hero_t {
     // Common fields.
@@ -228,6 +251,7 @@ struct hero_t {
     size_t   xp;
     item_t   items[MAX_ITEMS];       // Equipped items.
     item_t   inventory[MAX_INVENTORY];
+    debuff_t debuffs[MAX_DEBUFFS];
  // item_t buffs[MAX_BUFFS];       // Placeholder, not sure about this.
 };
 
@@ -302,6 +326,13 @@ void   weapon_attack(hero_t * hero, hero_t * enemy);
 void   breath(hero_t * hero, hero_t * enemy);
 size_t spell_enemy(hero_t * hero, hero_t * enemy, const element_t element);
 size_t cure(hero_t * h);
+void   apply_debuff(hero_t * enemy, const char * name,
+                    db_status_t status, element_t element,
+                    float amnt, size_t rounds);
+size_t process_debuffs(hero_t * enemy);
+void   process_debuffs_i(hero_t * enemy, debuff_t * debuff);
+
+size_t fire_strike(hero_t * hero, hero_t * enemy);
 
 void   sum_procs(size_t * h_proc_sum, hero_t * h);
 float  get_melee_dmg(const hero_t * h, const item_t * weapon,
@@ -333,7 +364,7 @@ static const char * action_prompt = "\n"
 
 static const char * spell_prompt = "\n"
                                    "  choose spell:\n"
-                                   "    f: fire\n"
+                                   "    f: fire strike\n"
                                    "    i: ice\n"
                                    "    s: shadow\n"
                                    "    u: non-elemental\n";
@@ -509,17 +540,15 @@ roll_mob(const char * name,
         mob = 1 + rand() % (DRAGON);
     }
 
-    for (;;) {
-        switch (mob) {
-        case HUMANOID:
-            return roll_humanoid(name, lvl);
-        case ANIMAL:
-            return roll_animal(name, lvl);
-        case DRAGON:
-            return roll_dragon(name, lvl);
-        default:
-            return roll_humanoid(name, lvl);
-        }
+    switch (mob) {
+    case HUMANOID:
+        return roll_humanoid(name, lvl);
+    case ANIMAL:
+        return roll_animal(name, lvl);
+    case DRAGON:
+        return roll_dragon(name, lvl);
+    default:
+        return roll_humanoid(name, lvl);
     }
 }
 
@@ -773,6 +802,10 @@ roll_dragon(const char * name,
 
     memset(&h, 0, sizeof(h));
 
+    // More powerful dragon sub_type appear at higher levels.
+    //
+    // TODO: need better way to do this. This will break
+    //       at high enough level.
     size_t d_lvl = (lvl / 10) + 1;
 
     h.mob_type = DRAGON;
@@ -1993,24 +2026,31 @@ spell_enemy(hero_t *        hero,
             hero_t *        enemy,
             const element_t element)
 {
-    size_t cost = 0;
+    // Need additional args for rank, type?
+    {
+        // Get spell cost.
+        //   - Instant damage cost more than DOT.
+        //   - non elemental costs more than elemental.
+        size_t cost = 0;
 
-    switch (element) {
-        case NON_ELEM:
-            cost = 32;
-            break;
+        switch (element) {
+            case NON_ELEM:
+                cost = 32;
+                break;
 
-        default:
-            cost = 16;
-            break;
-    }
+            default:
+                cost = 16;
+                break;
+        }
 
-    if (!spend_mp(hero, cost)) {
-        return 0;
+        if (!spend_mp(hero, cost)) {
+            return 0;
+        }
     }
 
     // Spells ignore armor and all procs.
     // Spell resistance functions as armor mitigation.
+    // Should spells penetrate barriers?
     float        base_dmg;
     float        resist;
     size_t       is_crit = 0;
@@ -2200,6 +2240,7 @@ battle(hero_t * hero,
     for (;;) {
         ++regen_ctr;
 
+        // hero's turn.
         decision_loop(hero, enemy);
         ++row_;
 
@@ -2212,6 +2253,19 @@ battle(hero_t * hero,
             break;
         }
 
+        // hero's debuffs.
+        if (process_debuffs(hero)) {
+            print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
+            print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
+
+            usleep(USLEEP_INTERVAL);
+
+            if (!hero->hp || !enemy->hp) {
+                break;
+            }
+        }
+
+        // enemy's turn.
         enemy->attack(enemy, hero);
         ++row_;
 
@@ -2222,6 +2276,18 @@ battle(hero_t * hero,
 
         if (!hero->hp || !enemy->hp) {
             break;
+        }
+
+        // enemy's debuffs.
+        if (process_debuffs(enemy)) {
+            print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
+            print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
+
+            usleep(USLEEP_INTERVAL);
+
+            if (!hero->hp || !enemy->hp) {
+                break;
+            }
         }
 
         if (regen_ctr == 2) {
@@ -2350,7 +2416,8 @@ choose_spell(hero_t * hero,
 
         switch (act_var) {
         case 'f':
-            status = hero->spell(hero, enemy, FIRE);
+            status = fire_strike(hero, enemy);
+            //status = hero->spell(hero, enemy, FIRE);
             done = 1;
             break;
 
@@ -3303,4 +3370,118 @@ get_total_stats(const hero_t * h)
     }
 
     return stats;
+}
+
+
+
+size_t
+fire_strike(hero_t * hero,
+            hero_t * enemy)
+{
+    // Burn the target for X fire damage, and then 10%
+    // additional damage on the target's next turn.
+    size_t fire_dmg = hero->spell(hero, enemy, FIRE);
+
+    if (!fire_dmg) {
+        // Spell cast failed for some reason.
+        return 0;
+    }
+    // else, spell succeeded. Apply burn debuff.
+
+    float burn_amnt = 0.1 * ((float) fire_dmg);
+
+    apply_debuff(enemy, "burn", DOT, FIRE, burn_amnt, 1);
+
+    return fire_dmg;
+}
+
+
+
+void
+apply_debuff(hero_t *     enemy,
+             const char * name,
+             db_status_t  status,
+             element_t    element,
+             float        amnt,
+             size_t       rounds)
+{
+    debuff_t * db = 0;
+
+    // Find the next empty debuff slot, and set ptr to it.
+    for (size_t i = 0; i < MAX_DEBUFFS; ++i) {
+        if (!enemy->debuffs[i].rounds) {
+            // This debuff has expired (or never existed).
+            db = &enemy->debuffs[i];
+            break;
+        }
+    }
+
+    if (!db) {
+        // Target enemy already has MAX_DEBUFFS applied.
+        return;
+    }
+
+    memset(db, 0, sizeof(debuff_t));
+
+    strcpy(db->name, name);
+    db->status = status;
+    db->element = element;
+    db->amnt = amnt;
+    db->rounds = rounds;
+
+    return;
+}
+
+
+
+size_t
+process_debuffs(hero_t * enemy)
+{
+    size_t status = 0;
+
+    for (size_t i = 0; i < MAX_DEBUFFS; ++i) {
+        if (!enemy->debuffs[i].rounds) {
+            continue;
+        }
+
+        process_debuffs_i(enemy, &enemy->debuffs[i]);
+        status = 1;
+    }
+
+    return status;
+}
+
+
+
+void
+process_debuffs_i(hero_t *  enemy,
+                  debuff_t * debuff)
+{
+    const char * name = debuff->name;
+    db_status_t  db_status = debuff->status;
+    element_t    element = debuff->element;
+    float        amnt = debuff->amnt;
+
+    debuff->rounds--;
+
+    size_t dmg = 0;
+
+    switch (db_status) {
+    case DOT:
+        // We don't have to consider spell resist or armor
+        // here, because mitigation was already taken into
+        // account when the debuff was calculated and applied.
+        dmg = attack_barrier(amnt, enemy);
+        printf("%s did %zu %s damage to %s\n", name, dmg, elem_to_str(element),
+               enemy->name);
+        break;
+
+    default:
+        // Do nothing
+        break;
+    }
+
+    ++row_;
+
+    return;
 }
