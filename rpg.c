@@ -13,24 +13,26 @@
 #include <time.h>
 #include <unistd.h>
 
+//
+#define ITEM_DROP_THRESH     (10)
 #define MAX_ITEMS            (11)  // Max item slots on hero.
 #define MAX_INVENTORY        (32)  // Max bag space slots on hero.
 #define MAX_NAME_LEN         (32)
 #define MAX_PROCS            (14)  // Max procs per item.
 
-#define HP_MULT              (4)   // max hp = 4 * stamina
-#define MP_MULT              (4)   // max mp = 4 * wisdom
-
+// Combat multipliers
+#define HP_MULT              (4)   // max health points = 4 * stamina
+#define MP_MULT              (4)   // max mana points = 4 * wisdom
 #define SPELL_DMG_MULT       (1.6)
 #define TWO_HAND_MULT        (1.6)
 #define ONE_HAND_MULT        (0.6)
 #define UNARMED_MULT         (0.5)
-
 #define ARMOR_HALF_POINT     (200) // Armor required for 50% melee reduction.
 #define DODGE_HALF_POINT     (500) // Agility required for 50% dodge.
 #define BASE_STAT            (7)
 #define BASE_STAT_VAR        (7)
 
+// TUI display
 #define BATTLE_TXT_ROW       (13)
 #define BATTLE_TXT_COL       (4)
 #define INVENTORY_ROW        (4)
@@ -45,12 +47,21 @@
 #define SELECT_ROW           (1)
 #define SELECT_COL           (64)
 
+// Misc
 #define USLEEP_INTERVAL (500000)
 
-#define ITEM_DROP_THRESH (10)
-
+// Cursor row and column.
 static size_t row_ = 0;
 static size_t col_ = 0;
+
+// Quality of item drop and difficulty of mobs.
+typedef enum {
+    COMMON      = 0,
+    GOOD        = 1,
+    RARE        = 2,
+    EPIC        = 3,
+    RANDOM_TIER = 99
+} tier_t;
 
 // slot_t is where item goes.
 typedef enum {
@@ -67,6 +78,7 @@ typedef enum {
     TRINKET   = 10,
     HP_POTION = 20,
     MP_POTION = 21,
+    BP_POTION = 22,
     NO_ITEM   = 98,
     RANDOM_S  = 99
 } slot_t;
@@ -94,22 +106,7 @@ typedef enum {
     RANDOM_W  = 99
 } weapon_t;
 
-typedef struct {
-    size_t sta;
-    size_t str;
-    size_t agi;
-    size_t wis;
-    size_t spr;
-} stats_t;
-
-typedef struct {
-    size_t fire;
-    size_t frost;
-    size_t shadow;
-    size_t non_elemental;
-    size_t restoration;
-} spell_t;
-
+// Spell schools.
 typedef enum {
     FIRE,
     FROST,
@@ -132,42 +129,13 @@ typedef enum {
     BARRIER  = 5,
 } proc_type_t;
 
-typedef struct {
-    proc_type_t type;  // proc_type_t
-    size_t      rate;  // Chance of triggering. 0 - 100
-    size_t      coeff; // Multipier. 0 - 100
-} proc_t;
-
-typedef enum {
-    COMMON      = 0,
-    GOOD        = 1,
-    RARE        = 2,
-    EPIC        = 3,
-    RANDOM_TIER = 99
-} tier_t;
-
-typedef struct {
-    char     name[MAX_NAME_LEN + 1];
-    stats_t  attr;
-    spell_t  power;
-    spell_t  resist;
-    proc_t   procs[MAX_PROCS];
-    slot_t   slot;
-    armor_t  armor_type;
-    weapon_t weapon_type;
-    size_t   armor; // TODO: armor?
-    size_t   stack; // 0 for non-stacking, n for amount.
- // size_t   buff_duration; // 0 for infinite, n for rounds? Not sure about this.
-    tier_t   tier; // 0 for common, 1 for good, 2 rare, 3 epic, 4 legendary?
-} item_t;
-
+// Fundamental monster types, and their various sub types.
 typedef enum {
     HERO      = 0,
     HUMANOID  = 1,
     ANIMAL    = 2,
     UNDEAD    = 3,
     DRAGON    = 5,
-    NO_ANIMAL = 98,
     RANDOM_M  = 99
 } mob_t;
 
@@ -201,6 +169,43 @@ typedef enum {
     RANDOM_DRAGON = 99
 } dragon_t;
 
+typedef struct {
+    size_t sta;  // HP
+    size_t str;  // weapon damage (favors blunt and two hand)
+    size_t agi;  // dodge, weapon damage (favors piercing and one hand)
+    size_t wis;  // MP, spell damage
+    size_t spr;  // HP and MP regen
+} stats_t;
+
+typedef struct {
+    size_t fire;
+    size_t frost;
+    size_t shadow;
+    size_t non_elemental;
+    size_t restoration;
+} spell_t;
+
+typedef struct {
+    proc_type_t type;  // proc_type_t
+    size_t      rate;  // Chance of triggering. 0 - 100
+    size_t      coeff; // Multipier. 0 - 100
+} proc_t;
+
+typedef struct {
+    char     name[MAX_NAME_LEN + 1];
+    stats_t  attr;
+    spell_t  power;
+    spell_t  resist;
+    proc_t   procs[MAX_PROCS];
+    slot_t   slot;
+    armor_t  armor_type;
+    weapon_t weapon_type;
+    size_t   armor;
+    size_t   stack; // 0 for non-stacking, n for amount.
+ // size_t   buff_duration; // 0 for infinite, n for rounds? Not sure about this.
+    tier_t   tier;
+} item_t;
+
 struct hero_t {
     // Common fields.
     char     name[MAX_NAME_LEN + 1]; // There are Some who call me Tim.
@@ -222,7 +227,6 @@ struct hero_t {
     // hero specific fields.
     size_t   xp;
     item_t   items[MAX_ITEMS];       // Equipped items.
-    size_t   have_item[MAX_ITEMS];
     item_t   inventory[MAX_INVENTORY];
  // item_t buffs[MAX_BUFFS];       // Placeholder, not sure about this.
 };
@@ -255,6 +259,7 @@ void   level_up(hero_t * h);
 void   set_hp_mp(hero_t * h);
 size_t get_max_hp(const hero_t * h);
 size_t get_max_mp(const hero_t * h);
+
 // Print functions.
 void         print_hero(hero_t * h, const size_t verbosity);
 void         print_equip(hero_t * h);
@@ -290,6 +295,7 @@ void         clear_spell_prompt(void);
 void   decision_loop(hero_t * hero, hero_t * enemy);
 size_t choose_spell(hero_t * hero, hero_t * enemy);
 void   battle(hero_t * hero, hero_t * enemy);
+
 // Abilities.
 void   attack_enemy(hero_t * hero, hero_t * enemy, const item_t * weapon);
 void   weapon_attack(hero_t * hero, hero_t * enemy);
@@ -316,6 +322,7 @@ size_t restore_mp(hero_t * h, const size_t amnt);
 size_t spend_hp(hero_t * h, const size_t amnt);
 size_t spend_mp(hero_t * h, const size_t amnt);
 
+// Prompts.
 static const char * action_prompt = "\n"
                                     "  choose action:\n"
                                     "    a: attack\n"
@@ -330,9 +337,6 @@ static const char * spell_prompt = "\n"
                                    "    i: ice\n"
                                    "    s: shadow\n"
                                    "    u: non-elemental\n";
-
-// TODO: different lists of prefixes and suffixes, maybe germanic,
-//       norse, etc? Different combinations for different mobs.
 
 // Animals.
 static const char * flying_list[] = {
@@ -620,8 +624,6 @@ roll_humanoid(const char * name,
     case BARBARIAN:
         h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                      RANDOM_W);
-        h.have_item[TWO_HAND] = 1;
-
         gen_item_set(&h, h.level, COMMON, LEATHER);
 
         break;
@@ -631,8 +633,6 @@ roll_humanoid(const char * name,
                                      RANDOM_W);
         h.items[OFF_HAND] = gen_item(0, h.level, COMMON, 0, SHIELD, OFF_HAND,
                                      NO_WEAPON);
-        h.have_item[MAIN_HAND] = 1;
-        h.have_item[OFF_HAND] = 1;
 
         gen_item_set(&h, h.level, COMMON, MAIL);
 
@@ -642,7 +642,6 @@ roll_humanoid(const char * name,
     case PRIEST:
         h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                      BLUNT);
-        h.have_item[TWO_HAND] = 1;
 
         gen_item_set(&h, h.level, COMMON, CLOTH);
 
@@ -653,8 +652,6 @@ roll_humanoid(const char * name,
                                       RANDOM_W);
         h.items[OFF_HAND] = gen_item(0, h.level, COMMON, 0, SHIELD, OFF_HAND,
                                      NO_WEAPON);
-        h.have_item[MAIN_HAND] = 1;
-        h.have_item[OFF_HAND] = 1;
 
         gen_item_set(&h, h.level, COMMON, PLATE);
 
@@ -666,9 +663,6 @@ roll_humanoid(const char * name,
                                      RANDOM_W);
         h.items[OFF_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, OFF_HAND,
                                      PIERCING);
-
-        h.have_item[MAIN_HAND] = 1;
-        h.have_item[OFF_HAND] = 1;
 
         gen_item_set(&h, h.level, COMMON, LEATHER);
 
@@ -1439,7 +1433,7 @@ set_hp_mp(hero_t * h)
     size_t wisdom = h->base.wis;
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (!h->have_item[i]) {
+        if (h->items[i].slot == NO_ITEM) {
             // Nothing to do.
             continue;
         }
@@ -1462,7 +1456,7 @@ get_max_hp(const hero_t * h)
     size_t stamina = h->base.sta;
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (!h->have_item[i]) {
+        if (h->items[i].slot == NO_ITEM) {
             // Nothing to do.
             continue;
         }
@@ -1481,7 +1475,7 @@ get_max_mp(const hero_t * h)
     size_t wisdom = h->base.wis;
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (!h->have_item[i]) {
+        if (h->items[i].slot == NO_ITEM) {
             // Nothing to do.
             continue;
         }
@@ -1517,6 +1511,11 @@ get_melee_dmg(const hero_t * h,
 
     // 2 hand blunt = 0.9 * strength + 0.1 * agility
     // 1 hand piercing = 0.1 * strength + 0.9 * agility
+
+    if (weapon->slot != NO_ITEM && weapon->armor_type != WEAPON) {
+        // Something is equipped that isn't a weapon.
+        return 0;
+    }
 
     switch (weapon->slot) {
     case MAIN_HAND:
@@ -1579,7 +1578,7 @@ get_melee_dmg(const hero_t * h,
     agi += h->base.agi;
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (!h->have_item[i]) {
+        if (h->items[i].slot == NO_ITEM) {
             // Nothing to calculate.
             continue;
         }
@@ -1629,7 +1628,7 @@ get_spell_dmg(const hero_t *  h,
 
     // Then get elemental power and wisdom from gear.
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (!h->have_item[i]) {
+        if (h->items[i].slot == NO_ITEM) {
             // Nothing to calculate.
             continue;
         }
@@ -1750,7 +1749,7 @@ get_armor(const hero_t * h)
     size_t armor = h->armor;
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (!h->have_item[i]) {
+        if (h->items[i].slot == NO_ITEM) {
             // Nothing to do.
             continue;
         }
@@ -1773,7 +1772,7 @@ get_spell_res(const hero_t *  h,
 
     // Then get elemental resist and wisdom from gear.
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (!h->have_item[i]) {
+        if (h->items[i].slot == NO_ITEM) {
             // Nothing to calculate.
             continue;
         }
@@ -1799,7 +1798,7 @@ get_dodge(const hero_t * h)
     agi += h->base.agi;
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (!h->have_item[i]) {
+        if (h->items[i].slot == NO_ITEM) {
             continue;
         }
 
@@ -1822,7 +1821,7 @@ get_spell_crit(const hero_t * h)
     wis += h->base.wis;
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (!h->have_item[i]) {
+        if (h->items[i].slot == NO_ITEM) {
             continue;
         }
 
@@ -1840,11 +1839,9 @@ void
 weapon_attack(hero_t * hero,
               hero_t * enemy)
 {
-    // This have_item thing is annoying. Also, need
-    // to print name,type of weapon on attack for debugging.
-    size_t main_hand = hero->have_item[MAIN_HAND];
-    size_t off_hand = hero->have_item[OFF_HAND];
-    size_t two_hand = hero->have_item[TWO_HAND];
+    size_t main_hand = hero->items[MAIN_HAND].slot != NO_ITEM;
+    size_t off_hand = hero->items[OFF_HAND].slot != NO_ITEM;
+    size_t two_hand = hero->items[TWO_HAND].slot != NO_ITEM;
 
     {
         const item_t * weapon = &hero->items[MAIN_HAND];
@@ -2142,7 +2139,7 @@ regen(hero_t * h)
     size_t regen_amnt = 0;
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (!h->have_item[i]) {
+        if (h->items[i].slot == NO_ITEM) {
             continue;
         }
 
@@ -2392,7 +2389,7 @@ sum_procs(size_t * h_proc_sum,
     // Sum up all the procs by type, across
     // the full inventory of items equipped.
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (!h->have_item[i]) {
+        if (h->items[i].slot == NO_ITEM) {
             // Nothing to do.
             continue;
         }
@@ -2498,7 +2495,7 @@ print_hero(hero_t *     h,
     printf("equipment\n");
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (!h->have_item[i]) {
+        if (h->items[i].slot == NO_ITEM) {
             continue;
         }
 
@@ -2901,8 +2898,8 @@ equip_from_inventory(hero_t *  h,
             return;
         }
 
-        h->have_item[MAIN_HAND] = 0;
-        h->have_item[OFF_HAND] = 0;
+        h->items[MAIN_HAND].slot = NO_ITEM;
+        h->items[OFF_HAND].slot = NO_ITEM;
     }
     else if (s_i_slot == MAIN_HAND || s_i_slot == OFF_HAND) {
         // Equipping one hand means de-equipping two hand.
@@ -2915,14 +2912,13 @@ equip_from_inventory(hero_t *  h,
             return;
         }
 
-        h->have_item[TWO_HAND] = 0;
+        h->items[TWO_HAND].slot = NO_ITEM;
     }
 
     item_t old_item = h->items[s_i_slot];
-    size_t have_old_item = h->have_item[s_i_slot];
+    size_t have_old_item = h->items[s_i_slot].slot = NO_ITEM;
 
     h->items[s_i_slot] = *s_i;
-    h->have_item[s_i_slot] = 1;
 
     *s_i = old_item;
 
@@ -3251,6 +3247,8 @@ clear_act_prompt(void)
 void
 print_spell_prompt(void)
 {
+    // This list printed should really be dynamic,
+    // needs to reflect what has been unlocked by hero.
     printf("%s", spell_prompt);
 
     return;
@@ -3292,7 +3290,7 @@ get_total_stats(const hero_t * h)
     stats.spr = h->base.spr;
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (!h->have_item[i]) {
+        if (h->items[i].slot == NO_ITEM) {
             // Nothing to do.
             continue;
         }
@@ -3306,4 +3304,3 @@ get_total_stats(const hero_t * h)
 
     return stats;
 }
-
