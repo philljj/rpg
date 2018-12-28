@@ -169,6 +169,12 @@ typedef enum {
     RANDOM_DRAGON = 99
 } dragon_t;
 
+#define MAX_COOLDOWNS (2)
+typedef enum {
+    SHIELD_BASH = 0,
+    HIBERNATE   = 1, // Double armor and regen for one round.
+} cooldown_type_t;
+
 // Status type of debuff.
 typedef enum {
     DOT           = 0, // Damage Over Time. Burn, curse, bleed, etc.
@@ -177,6 +183,7 @@ typedef enum {
     DISARM        = 3, // Disarms two hand or main hand.
     SLOW          = 4, // Reduces agility.
     WEAKEN        = 5, // Reduces strength.
+    SLEEP         = 6, // Incapacitated, but damage will awaken.
     RANDOM_STATUS = 99
 } db_status_t;
 
@@ -229,6 +236,10 @@ typedef struct {
     size_t      rounds; // Active rounds remaining. Debuff ends at 0.
 } debuff_t;
 
+typedef struct {
+    size_t rounds;
+} cd_t;
+
 struct hero_t {
     // Common fields.
     char     name[MAX_NAME_LEN + 1]; // There are Some who call me Tim.
@@ -244,13 +255,15 @@ struct hero_t {
     spell_t  resist;                 // Resists spell damage received.
     // Need way to handle cooldowns for these...
     void     (*attack)(struct hero_t *, struct hero_t *);
-    size_t   (*spell)(struct hero_t *, struct hero_t *, const element_t element);
+    size_t   (*spell)(struct hero_t *, struct hero_t *, const element_t element,
+                      const float multiplier);
     void     (*defend)(struct hero_t *);
     size_t   (*heal)(struct hero_t *);
     // hero specific fields.
     size_t   xp;
     item_t   items[MAX_ITEMS];       // Equipped items.
     item_t   inventory[MAX_INVENTORY];
+    cd_t     cooldowns[MAX_COOLDOWNS];
     debuff_t debuffs[MAX_DEBUFFS];
  // item_t buffs[MAX_BUFFS];       // Placeholder, not sure about this.
 };
@@ -312,25 +325,32 @@ void         del_line(void);
 void         del_eof(void);
 void         print_act_prompt(void);
 void         clear_act_prompt(void);
+void         print_attack_prompt(void);
+void         clear_attack_prompt(void);
 void         print_spell_prompt(void);
 void         clear_spell_prompt(void);
 
 // Combat functions.
 void   decision_loop(hero_t * hero, hero_t * enemy);
+size_t choose_attack(hero_t * hero, hero_t * enemy);
 size_t choose_spell(hero_t * hero, hero_t * enemy);
 void   battle(hero_t * hero, hero_t * enemy);
 
 // Abilities.
 void   attack_enemy(hero_t * hero, hero_t * enemy, const item_t * weapon);
 void   weapon_attack(hero_t * hero, hero_t * enemy);
+size_t shield_bash(hero_t * hero, hero_t * enemy);
 void   breath(hero_t * hero, hero_t * enemy);
-size_t spell_enemy(hero_t * hero, hero_t * enemy, const element_t element);
+size_t spell_enemy(hero_t * hero, hero_t * enemy, const element_t element,
+                   const float multiplier);
 size_t cure(hero_t * h);
 void   apply_debuff(hero_t * enemy, const char * name,
                     db_status_t status, element_t element,
                     float amnt, size_t rounds);
 size_t process_debuffs(hero_t * enemy);
 void   process_debuffs_i(hero_t * enemy, debuff_t * debuff);
+void   process_cooldowns(hero_t * h);
+void   reset_cooldowns(hero_t * h);
 
 size_t fire_strike(hero_t * hero, hero_t * enemy);
 
@@ -361,6 +381,11 @@ static const char * action_prompt = "\n"
                                     "    d: defend\n"
                                     "    h: heal\n"
                                     "    i: inventory\n";
+
+static const char * attack_prompt = "\n"
+                                    "  choose melee attack:\n"
+                                    "    a: weapon attack\n"
+                                    "    b: shield bash\n";
 
 static const char * spell_prompt = "\n"
                                    "  choose spell:\n"
@@ -1929,6 +1954,20 @@ attack_enemy(hero_t *       hero,
              const item_t * weapon)
 {
     {
+        // Check if attacking unit is incapacitated.
+        for (size_t i = 0; i < MAX_DEBUFFS; ++i) {
+            if (!hero->debuffs[i].rounds) {
+                continue;
+            }
+
+            if (hero->debuffs[i].status == STUN ||
+                hero->debuffs[i].status == SLEEP) {
+                return;
+            }
+        }
+    }
+
+    {
         // Calculate dodge first. If attack misses, nothing left to do.
         float dodge = get_dodge(enemy);
         float trigger = rand() % 10000;
@@ -2024,7 +2063,8 @@ END_ATTACK:
 size_t
 spell_enemy(hero_t *        hero,
             hero_t *        enemy,
-            const element_t element)
+            const element_t element,
+            const float     multiplier)
 {
     // Need additional args for rank, type?
     {
@@ -2035,11 +2075,11 @@ spell_enemy(hero_t *        hero,
 
         switch (element) {
             case NON_ELEM:
-                cost = 32;
+                cost = (size_t) floor(32 * multiplier);
                 break;
 
             default:
-                cost = 16;
+                cost = (size_t) floor(16 * multiplier);
                 break;
         }
 
@@ -2057,7 +2097,7 @@ spell_enemy(hero_t *        hero,
     size_t       final_dmg;
     const char * what = elem_to_str(element);
 
-    base_dmg = get_spell_dmg(hero, element, STD_SMEAR);
+    base_dmg = multiplier * get_spell_dmg(hero, element, STD_SMEAR);
 
     {
         // Calculate crit. Reusing dodge for now.
@@ -2241,6 +2281,7 @@ battle(hero_t * hero,
         ++regen_ctr;
 
         // hero's turn.
+        process_cooldowns(hero);
         decision_loop(hero, enemy);
         ++row_;
 
@@ -2266,6 +2307,7 @@ battle(hero_t * hero,
         }
 
         // enemy's turn.
+        process_cooldowns(enemy);
         enemy->attack(enemy, hero);
         ++row_;
 
@@ -2314,6 +2356,7 @@ battle(hero_t * hero,
     }
 
     row_ = 0;
+    reset_cooldowns(hero);
 
     if (!hero->hp && enemy->hp) {
         printf("%s has defeated %s!\n\n", enemy->name, hero->name);
@@ -2349,8 +2392,10 @@ decision_loop(hero_t * hero,
 
         switch (act_var) {
         case 'a':
-            hero->attack(hero, enemy);
-            done = 1;
+            if (choose_attack(hero, enemy)) {
+                done = 1;
+            }
+
             break;
 
         case 's':
@@ -2422,17 +2467,17 @@ choose_spell(hero_t * hero,
             break;
 
         case 'i':
-            status = hero->spell(hero, enemy, FROST);
+            status = hero->spell(hero, enemy, FROST, 1);
             done = 1;
             break;
 
         case 's':
-            status = hero->spell(hero, enemy, SHADOW);
+            status = hero->spell(hero, enemy, SHADOW, 1);
             done = 1;
             break;
 
         case 'u':
-            status = hero->spell(hero, enemy, NON_ELEM);
+            status = hero->spell(hero, enemy, NON_ELEM, 1);
             done = 1;
             break;
 
@@ -2446,6 +2491,46 @@ choose_spell(hero_t * hero,
 
     return status;
 }
+
+
+
+size_t
+choose_attack(hero_t * hero,
+              hero_t * enemy)
+{
+    size_t done = 0;
+    size_t status;
+
+    for (;;) {
+        print_attack_prompt();
+
+        char act_var = (char) fgetc(stdin);
+        while (fgetc(stdin) != '\n');
+
+        clear_attack_prompt();
+
+        switch (act_var) {
+        case 'a':
+            hero->attack(hero, enemy);
+            done = 1;
+            break;
+
+        case 'b':
+            status = shield_bash(hero, enemy);
+            done = 1;
+            break;
+
+        default:
+            printf("error: invalid input %c\n", act_var);
+            break;
+        }
+
+        if (done) { break; }
+    }
+
+    return status;
+}
+
 
 
 
@@ -3324,6 +3409,18 @@ print_spell_prompt(void)
 
 
 void
+print_attack_prompt(void)
+{
+    // This list printed should really be dynamic,
+    // needs to reflect what has been unlocked by hero.
+    printf("%s", attack_prompt);
+
+    return;
+}
+
+
+
+void
 clear_spell_prompt(void)
 {
     const char * ptr = spell_prompt;
@@ -3342,6 +3439,29 @@ clear_spell_prompt(void)
 
     return;
 }
+
+
+
+void
+clear_attack_prompt(void)
+{
+    const char * ptr = attack_prompt;
+
+    while (*ptr) {
+        if (*ptr == '\n') {
+            printf("\r\033[A");
+        }
+
+        ++ptr;
+    }
+
+    // Not sure why this one extra needed.
+    printf("\r\033[A");
+    del_eof();
+
+    return;
+}
+
 
 
 
@@ -3380,7 +3500,7 @@ fire_strike(hero_t * hero,
 {
     // Burn the target for X fire damage, and then 10%
     // additional damage on the target's next turn.
-    size_t fire_dmg = hero->spell(hero, enemy, FIRE);
+    size_t fire_dmg = hero->spell(hero, enemy, FIRE, 1);
 
     if (!fire_dmg) {
         // Spell cast failed for some reason.
@@ -3393,6 +3513,73 @@ fire_strike(hero_t * hero,
     apply_debuff(enemy, "burn", DOT, FIRE, burn_amnt, 1);
 
     return fire_dmg;
+}
+
+
+
+size_t
+shield_bash(hero_t * hero,
+            hero_t * enemy)
+{
+    if (hero->cooldowns[SHIELD_BASH].rounds) {
+        printf("shield bash on cooldown for %zu rounds\n",
+               hero->cooldowns[SHIELD_BASH].rounds);
+        return 0;
+    }
+
+    if (hero->items[OFF_HAND].slot == NO_ITEM ||
+        hero->items[OFF_HAND].armor_type != SHIELD) {
+        printf("no shield equipped\n");
+        return 0;
+    }
+
+    // Need to check cooldowns. Have a list of cooldowns?
+    // Need to require shield?
+    // Bash the target for 0.6 main hand dmg,
+    // and stuns target for one round.
+
+    float  mult = 0.5;
+
+    switch (hero->items[OFF_HAND].tier) {
+        case GOOD:
+            mult = 0.7;
+            break;
+
+        case RARE:
+            mult = 0.9;
+            break;
+
+        case EPIC:
+            mult = 1.1;
+            break;
+
+        case COMMON:
+        default:
+            break;
+    }
+
+    float  sb_dmg = get_melee_dmg(hero, &hero->items[MAIN_HAND], STD_SMEAR);
+    float  mitigation = get_mitigation(enemy);
+    size_t final_dmg = (size_t) floor(mult * sb_dmg * mitigation);
+
+    if (!final_dmg) {
+        // Bash failed for some reason.
+        return 0;
+    }
+    // else, succeeded. Apply stun debuff.
+
+    // Reduce enemy barrier and health.
+    size_t hp_reduced = attack_barrier(final_dmg, enemy);
+
+    printf("shield bash hit %s for %zu hp damage\n",
+           enemy->name, hp_reduced);
+    ++row_;
+
+    apply_debuff(enemy, "shield bash", STUN, NON_ELEM, 0, 1);
+
+    hero->cooldowns[SHIELD_BASH].rounds = 4;
+
+    return hp_reduced;
 }
 
 
@@ -3476,12 +3663,43 @@ process_debuffs_i(hero_t *  enemy,
                enemy->name);
         break;
 
+    case STUN:
+        printf("%s stunned %s\n", name, enemy->name);
+        break;
+
     default:
         // Do nothing
         break;
     }
 
     ++row_;
+
+    return;
+}
+
+
+
+void
+process_cooldowns(hero_t * h)
+{
+    for (size_t i = 0; i < MAX_COOLDOWNS; ++i) {
+
+        if(h->cooldowns[i].rounds) {
+            h->cooldowns[i].rounds--;
+        }
+    }
+
+    return;
+}
+
+
+
+void
+reset_cooldowns(hero_t * h)
+{
+    for (size_t i = 0; i < MAX_COOLDOWNS; ++i) {
+        h->cooldowns[i].rounds = 0;
+    }
 
     return;
 }
