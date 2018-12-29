@@ -120,15 +120,6 @@ typedef enum {
     STD_SMEAR
 } smear_t;
 
-typedef enum {
-    NONE     = 0,
-    DRAIN_HP = 1,
-    DRAIN_MP = 2,
-    MP_BURN  = 3,
-    THORNS   = 4,
-    BARRIER  = 5,
-} proc_type_t;
-
 // Fundamental monster types, and their various sub types.
 typedef enum {
     HERO      = 0,
@@ -157,6 +148,7 @@ typedef enum {
     WIZARD          = 5, // cloth, leather, spell
     NECROMANCER     = 6, // cloth, leather, shadow life drain
     KNIGHT          = 7, // plate, shield, one hand, or two hand
+    GEOMANCER       = 8, // mail, weapon imbues
     RANDOM_HUMANOID = 99
 } humanoid_t;
 
@@ -169,11 +161,33 @@ typedef enum {
     RANDOM_DRAGON = 99
 } dragon_t;
 
-#define MAX_COOLDOWNS (2)
+#define MAX_COOLDOWNS (9)
+// These are beginner cooldown class abilities?
 typedef enum {
-    SHIELD_BASH = 0,
-    HIBERNATE   = 1, // Double armor and regen for one round.
-} cooldown_type_t;
+    BACK_STAB     = 0, // Triple damage main hand dagger strike. No dodge.
+    CRUSHING_BLOW = 1, // Double damage two hand strike.
+    SHIELD_BASH   = 2, // Bash for X damage and stun for one round.
+    DIVINE_HEAL   = 3, // Heals for 100% of health over 3 rounds. No mana cost.
+    HIBERNATE     = 4, // Double armor and regen for 3 round.
+    MANA_FONT     = 5, // Restores 100% of mana over 3 rounds. No mana cost.
+    FEL_STRIKE    = 6, // Weapon attack for X damage and heal for X.
+    SHIELD_WALL   = 7, // Reduces all damage by 90% for 3 rounds.
+    ROCK_WEAPON   = 8, // Weapon attacks also deal 50% non-elem dmg for 4 rounds.
+} cooldown_t;
+
+#define MAX_NON_COOLDOWNS (9)
+// These are beginner non-cooldown class abilities?
+typedef enum {
+    EVASION      = 0, // Increases dodge chance by 40%, mana cost.
+    ENRAGE       = 1, // Increases damage given by 30%, taken by 20%.
+    BREAK_ARMOR  = 2, // Damage for X and reduces armor by 20% for 4 rounds.
+    BARRIER      = 3, // Barrier that absorbs all damage, mana cost, non stacking.
+    STARFIRE     = 4, // Non-elem spell damage. Mana cost.
+    FIRE_BALL    = 5, // Fire spell for %150 spell damage, plus 50% over 3 rounds.
+    CURSE        = 6, // Spell damage over time, mana cost, non stacking.
+    POWER_STRIKE = 7, // Powerful strike for 1.5 weapon attack damage.
+    EARTH_SPRING = 8, // Restores X health for 10 rounds. Stacks 3 times.
+} non_cooldown_t;
 
 // Status type of debuff.
 typedef enum {
@@ -203,19 +217,12 @@ typedef struct {
     size_t restoration;
 } spell_t;
 
-typedef struct {
-    proc_type_t type;  // proc_type_t
-    size_t      rate;  // Chance of triggering. 0 - 100
-    size_t      coeff; // Multipier. 0 - 100
-} proc_t;
-
 #define MAX_DEBUFFS (16)
 typedef struct {
     char     name[MAX_NAME_LEN + 1];
     stats_t  attr;
     spell_t  power;
     spell_t  resist;
-    proc_t   procs[MAX_PROCS];
     slot_t   slot;
     armor_t  armor_type;
     weapon_t weapon_type;
@@ -237,8 +244,13 @@ typedef struct {
 } debuff_t;
 
 typedef struct {
+    size_t unlocked;
     size_t rounds;
 } cd_t;
+
+typedef struct {
+    size_t unlocked;
+} non_cd_t;
 
 struct hero_t {
     // Common fields.
@@ -264,6 +276,7 @@ struct hero_t {
     item_t   items[MAX_ITEMS];       // Equipped items.
     item_t   inventory[MAX_INVENTORY];
     cd_t     cooldowns[MAX_COOLDOWNS];
+    non_cd_t non_cooldowns[MAX_NON_COOLDOWNS];
     debuff_t debuffs[MAX_DEBUFFS];
  // item_t buffs[MAX_BUFFS];       // Placeholder, not sure about this.
 };
@@ -325,8 +338,8 @@ void         del_line(void);
 void         del_eof(void);
 void         print_act_prompt(void);
 void         clear_act_prompt(void);
-void         print_attack_prompt(void);
-void         clear_attack_prompt(void);
+void         print_attack_prompt(const hero_t * h);
+void         clear_attack_prompt(const hero_t * h);
 void         print_spell_prompt(void);
 void         clear_spell_prompt(void);
 
@@ -339,6 +352,7 @@ void   battle(hero_t * hero, hero_t * enemy);
 // Abilities.
 void   attack_enemy(hero_t * hero, hero_t * enemy, const item_t * weapon);
 void   weapon_attack(hero_t * hero, hero_t * enemy);
+size_t back_stab(hero_t * hero, hero_t * enemy);
 size_t shield_bash(hero_t * hero, hero_t * enemy);
 void   breath(hero_t * hero, hero_t * enemy);
 size_t spell_enemy(hero_t * hero, hero_t * enemy, const element_t element,
@@ -353,8 +367,8 @@ void   process_cooldowns(hero_t * h);
 void   reset_cooldowns(hero_t * h);
 
 size_t fire_strike(hero_t * hero, hero_t * enemy);
+size_t shadow_bolt(hero_t * hero, hero_t * enemy);
 
-void   sum_procs(size_t * h_proc_sum, hero_t * h);
 float  get_melee_dmg(const hero_t * h, const item_t * weapon,
                      smear_t smear_type);
 float  get_spell_dmg(const hero_t * h, const element_t element,
@@ -382,16 +396,11 @@ static const char * action_prompt = "\n"
                                     "    h: heal\n"
                                     "    i: inventory\n";
 
-static const char * attack_prompt = "\n"
-                                    "  choose melee attack:\n"
-                                    "    a: weapon attack\n"
-                                    "    b: shield bash\n";
-
 static const char * spell_prompt = "\n"
                                    "  choose spell:\n"
                                    "    f: fire strike\n"
                                    "    i: ice\n"
-                                   "    s: shadow\n"
+                                   "    s: shadow bolt\n"
                                    "    u: non-elemental\n";
 
 // Animals.
@@ -617,6 +626,8 @@ roll_hero(const char * name,
                                    PIERCING);
 
     gen_item_set(&h, h.level, COMMON, RANDOM_A);
+
+    h.cooldowns[BACK_STAB].unlocked = 1;
 
     set_hp_mp(&h);
 
@@ -1984,14 +1995,6 @@ attack_enemy(hero_t *       hero,
     float  mitigation;
     size_t is_crit = 0;
     size_t final_dmg;
-    size_t h_proc_sum[MAX_PROCS];
-    size_t e_proc_sum[MAX_PROCS];
-
-    memset(h_proc_sum, 0, sizeof(h_proc_sum));
-    memset(e_proc_sum, 0, sizeof(e_proc_sum));
-
-    sum_procs(h_proc_sum, hero);
-    sum_procs(e_proc_sum, enemy);
 
     base_dmg = get_melee_dmg(hero, weapon, STD_SMEAR);
 
@@ -2017,29 +2020,6 @@ attack_enemy(hero_t *       hero,
 
     // Reduce enemy barrier and health.
     size_t hp_reduced = attack_barrier(final_dmg, enemy);
-
-    if (h_proc_sum[DRAIN_HP] && hp_reduced) {
-        // Needs a multiplier...
-        hero->hp += hp_reduced;
-    }
-
-    if (h_proc_sum[DRAIN_MP] && hp_reduced) {
-        // Needs a multiplier...
-        hero->mp += hp_reduced < enemy->mp ? hp_reduced : enemy->mp;
-        enemy->mp -= hp_reduced < enemy->mp ? hp_reduced : enemy->mp;
-    }
-
-    if (h_proc_sum[MP_BURN] && hp_reduced) {
-        // Needs a multiplier...
-        enemy->mp -= hp_reduced < enemy->mp ? hp_reduced : enemy->mp;
-    }
-
-    if (e_proc_sum[THORNS]) {
-        // Reflect damage at hero.
-        // TODO: print thorn dmg.
-        size_t thorn_dmg = e_proc_sum[THORNS];
-        attack_barrier(thorn_dmg, hero);
-    }
 
     // TODO: print overkill?
 
@@ -2472,7 +2452,8 @@ choose_spell(hero_t * hero,
             break;
 
         case 's':
-            status = hero->spell(hero, enemy, SHADOW, 1);
+            status = shadow_bolt(hero, enemy);
+            //status = hero->spell(hero, enemy, SHADOW, 1);
             done = 1;
             break;
 
@@ -2502,12 +2483,12 @@ choose_attack(hero_t * hero,
     size_t status;
 
     for (;;) {
-        print_attack_prompt();
+        print_attack_prompt(hero);
 
         char act_var = (char) fgetc(stdin);
         while (fgetc(stdin) != '\n');
 
-        clear_attack_prompt();
+        clear_attack_prompt(hero);
 
         switch (act_var) {
         case 'a':
@@ -2516,6 +2497,11 @@ choose_attack(hero_t * hero,
             break;
 
         case 'b':
+            status = back_stab(hero, enemy);
+            done = 1;
+            break;
+
+        case 's':
             status = shield_bash(hero, enemy);
             done = 1;
             break;
@@ -2529,45 +2515,6 @@ choose_attack(hero_t * hero,
     }
 
     return status;
-}
-
-
-
-
-void
-sum_procs(size_t * h_proc_sum,
-          hero_t * h)
-{
-    // Sum up all the procs by type, across
-    // the full inventory of items equipped.
-    for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (h->items[i].slot == NO_ITEM) {
-            // Nothing to do.
-            continue;
-        }
-
-        for (size_t p = 0; p < MAX_PROCS; ++p) {
-            proc_type_t p_type = h->items[i].procs[p].type;
-
-            if (!p_type) {
-                // Nothing to do.
-                continue;
-            }
-
-            size_t rate = h->items[i].procs[p].rate;
-            size_t trigger = rand() % 100;
-
-            if (rate > trigger) {
-                // Proc trigger threshold reached.
-                size_t  coeff = h->items[i].procs[p].coeff;
-                h_proc_sum[p_type] += coeff;
-            }
-        }
-    }
-
-    h->bp += h_proc_sum[BARRIER];
-
-    return;
 }
 
 
@@ -3409,11 +3356,25 @@ print_spell_prompt(void)
 
 
 void
-print_attack_prompt(void)
+print_attack_prompt(const hero_t * h)
 {
     // This list printed should really be dynamic,
     // needs to reflect what has been unlocked by hero.
-    printf("%s", attack_prompt);
+    printf("\n");
+    printf("  choose melee attack:\n");
+    printf("    a: weapon attack\n");
+
+    if (h->cooldowns[BACK_STAB].unlocked) {
+        printf("    b: back stab\n");
+    }
+
+    if (h->cooldowns[CRUSHING_BLOW].unlocked) {
+        printf("    c: crushing blow\n");
+    }
+
+    if (h->cooldowns[SHIELD_BASH].unlocked) {
+        printf("    s: shield bash\n");
+    }
 
     return;
 }
@@ -3443,16 +3404,22 @@ clear_spell_prompt(void)
 
 
 void
-clear_attack_prompt(void)
+clear_attack_prompt(const hero_t * h)
 {
-    const char * ptr = attack_prompt;
+    printf("\r\033[A");
+    printf("\r\033[A");
+    printf("\r\033[A");
 
-    while (*ptr) {
-        if (*ptr == '\n') {
-            printf("\r\033[A");
-        }
+    if (h->cooldowns[BACK_STAB].unlocked) {
+        printf("\r\033[A");
+    }
 
-        ++ptr;
+    if (h->cooldowns[CRUSHING_BLOW].unlocked) {
+        printf("\r\033[A");
+    }
+
+    if (h->cooldowns[SHIELD_BASH].unlocked) {
+        printf("\r\033[A");
     }
 
     // Not sure why this one extra needed.
@@ -3518,9 +3485,103 @@ fire_strike(hero_t * hero,
 
 
 size_t
+shadow_bolt(hero_t * hero,
+            hero_t * enemy)
+{
+    // Blast the target for X shadow damage, and heals the caster
+    // for 10% of damage delt.
+    size_t shadow_dmg = hero->spell(hero, enemy, SHADOW, 1);
+
+    if (!shadow_dmg) {
+        // Spell cast failed for some reason.
+        return 0;
+    }
+    // else, spell succeeded. Heal caster.
+
+    float heal_amnt = 0.1 * ((float) shadow_dmg);
+
+    restore_hp(hero, heal_amnt);
+
+    return shadow_dmg;
+}
+
+
+
+size_t
+back_stab(hero_t * hero,
+          hero_t * enemy)
+{
+    if (!hero->cooldowns[BACK_STAB].unlocked) {
+        // Haven't learned this ability yet.
+        return 0;
+    }
+
+    if (hero->cooldowns[BACK_STAB].rounds) {
+        printf("back stab on cooldown for %zu rounds\n",
+               hero->cooldowns[BACK_STAB].rounds);
+        return 0;
+    }
+
+    if (hero->items[MAIN_HAND].slot == NO_ITEM ||
+        hero->items[MAIN_HAND].weapon_type != PIERCING) {
+        printf("no dagger equipped\n");
+        return 0;
+    }
+
+    float  mult = 3.0;
+
+    switch (hero->items[MAIN_HAND].tier) {
+        case GOOD:
+            mult = 3.3;
+            break;
+
+        case RARE:
+            mult = 3.6;
+            break;
+
+        case EPIC:
+            mult = 3.9;
+            break;
+
+        case COMMON:
+        default:
+            break;
+    }
+
+    float  sb_dmg = get_melee_dmg(hero, &hero->items[MAIN_HAND], STD_SMEAR);
+    float  mitigation = get_mitigation(enemy);
+    size_t final_dmg = (size_t) floor(mult * sb_dmg * mitigation);
+
+    if (!final_dmg) {
+        // Back stab failed for some reason.
+        return 0;
+    }
+    // else, succeeded.
+
+    // Reduce enemy barrier and health.
+    size_t hp_reduced = attack_barrier(final_dmg, enemy);
+
+    printf("back stab hit %s for %zu hp damage\n",
+           enemy->name, hp_reduced);
+    ++row_;
+
+    hero->cooldowns[BACK_STAB].rounds = 4;
+
+    return hp_reduced;
+}
+
+
+
+
+size_t
 shield_bash(hero_t * hero,
             hero_t * enemy)
 {
+    if (!hero->cooldowns[SHIELD_BASH].unlocked) {
+        // Haven't learned this ability yet.
+        return 0;
+    }
+
     if (hero->cooldowns[SHIELD_BASH].rounds) {
         printf("shield bash on cooldown for %zu rounds\n",
                hero->cooldowns[SHIELD_BASH].rounds);
