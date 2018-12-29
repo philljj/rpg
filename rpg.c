@@ -168,8 +168,8 @@ typedef enum {
     CRUSHING_BLOW = 1, // Double damage two hand strike.
     SHIELD_BASH   = 2, // Bash for X damage and stun for one round.
     DIVINE_HEAL   = 3, // Heals for 100% of health over 3 rounds. No mana cost.
-    HIBERNATE     = 4, // Double armor and regen for 3 round.
-    MANA_FONT     = 5, // Restores 100% of mana over 3 rounds. No mana cost.
+    SHAPESHIFT    = 4, // Unlocks bear and cat forms.
+    FIREBALL      = 5, // Fire spell for %150 spell damage, plus 50% over 3 rounds.
     FEL_STRIKE    = 6, // Weapon attack for X damage and heal for X.
     SHIELD_WALL   = 7, // Reduces all damage by 90% for 3 rounds.
     ROCK_WEAPON   = 8, // Weapon attacks also deal 50% non-elem dmg for 4 rounds.
@@ -183,7 +183,7 @@ typedef enum {
     BREAK_ARMOR  = 2, // Damage for X and reduces armor by 20% for 4 rounds.
     BARRIER      = 3, // Barrier that absorbs all damage, mana cost, non stacking.
     STARFIRE     = 4, // Non-elem spell damage. Mana cost.
-    FIRE_BALL    = 5, // Fire spell for %150 spell damage, plus 50% over 3 rounds.
+    MANA_FONT    = 5, // Restores 100% of mana over 3 rounds. No mana cost.
     CURSE        = 6, // Spell damage over time, mana cost, non stacking.
     POWER_STRIKE = 7, // Powerful strike for 1.5 weapon attack damage.
     EARTH_SPRING = 8, // Restores X health for 10 rounds. Stacks 3 times.
@@ -268,7 +268,7 @@ struct hero_t {
     // Need way to handle cooldowns for these...
     void     (*attack)(struct hero_t *, struct hero_t *);
     size_t   (*spell)(struct hero_t *, struct hero_t *, const element_t element,
-                      const float multiplier);
+                      const float dmg_mult, const float mp_mult);
     void     (*defend)(struct hero_t *);
     size_t   (*heal)(struct hero_t *);
     // hero specific fields.
@@ -284,8 +284,8 @@ struct hero_t {
 typedef struct hero_t hero_t;
 
 // Basic mob gen functions.
+hero_t roll_hero(const size_t lvl);
 hero_t roll_mob(const char * name, const size_t lvl, mob_t mob);
-hero_t roll_hero(const char * name, const size_t lvl);
 hero_t roll_humanoid(const char * name, const size_t lvl);
 hero_t roll_animal(const char * name, const size_t lvl);
 hero_t roll_dragon(const char * name, const size_t lvl);
@@ -336,12 +336,13 @@ void         reset_cursor(void);
 void         set_cursor(void);
 void         del_line(void);
 void         del_eof(void);
+void         clear_screen(void);
 void         print_act_prompt(void);
 void         clear_act_prompt(void);
 void         print_attack_prompt(const hero_t * h);
 void         clear_attack_prompt(const hero_t * h);
-void         print_spell_prompt(void);
-void         clear_spell_prompt(void);
+void         print_spell_prompt(const hero_t * h);
+void         clear_spell_prompt(const hero_t * h);
 
 // Combat functions.
 void   decision_loop(hero_t * hero, hero_t * enemy);
@@ -356,7 +357,7 @@ size_t back_stab(hero_t * hero, hero_t * enemy);
 size_t shield_bash(hero_t * hero, hero_t * enemy);
 void   breath(hero_t * hero, hero_t * enemy);
 size_t spell_enemy(hero_t * hero, hero_t * enemy, const element_t element,
-                   const float multiplier);
+                   const float dmg_mult, const float mp_mult);
 size_t cure(hero_t * h);
 void   apply_debuff(hero_t * enemy, const char * name,
                     db_status_t status, element_t element,
@@ -368,6 +369,7 @@ void   reset_cooldowns(hero_t * h);
 
 size_t fire_strike(hero_t * hero, hero_t * enemy);
 size_t shadow_bolt(hero_t * hero, hero_t * enemy);
+size_t fireball(hero_t * hero, hero_t * enemy);
 
 float  get_melee_dmg(const hero_t * h, const item_t * weapon,
                      smear_t smear_type);
@@ -445,27 +447,47 @@ static const char * fire_dragon_list[] = {
     "searing drake", "ember serpent", "inferno dragon", "magma wyrm"
 };
 
-#define MAX_PREFIX (50)
+#define MAX_PREFIX (115)
 static const char * prefix_list[MAX_PREFIX] = {
     "ab", "ae", "ag", "am", "an", "ba", "be", "bi", "bo", "bu",
     "ca", "ce", "ci", "co", "cu", "da", "de", "di", "do", "du",
     "fa", "fe", "fi", "fo", "fu", "ga", "ge", "gi", "go", "gu",
     "ha", "he", "hi", "ho", "hu", "ma", "me", "mi", "mo", "mu",
-    "sa", "se", "si", "so", "su", "ta", "te", "ti", "to", "tu"
+    "sa", "se", "si", "so", "su", "ta", "te", "ti", "to", "tu",//50
+    "ag", "bag", "cag", "dag", "mag",
+    "al", "el", "il", "ol", "ul",
+    "isil", "ithil", "igil", "iril", "imil",
+    "aeon", "feon", "heon", "leon", "theon",
+    "ainar", "finar", "minar", "thinar", "sinar",
+    "mith", "minith", "minas", "milith", "mae",
+    "gala", "galad", "gal", "galat", "galag",
+    "bala", "balad", "bal", "balat", "balag",
+    "rha", "rhe", "rhi", "rho", "rhith",
+    "cele", "celem", "curu", "cara", "cura",//100
+    "ind", "im", "idril", "inglor", "irime",
+    "tha", "the", "tho", "thi", "thu"
+    "tham", "than", "thath", "thon", "thoth"
+    "thal", 
 };
 
-#define MAX_SUFFIX (75)
+#define MAX_SUFFIX (105)
 static const char * suffix_list[MAX_SUFFIX] = {
     "ab", "ae", "ag", "am", "an", "ba", "be", "bi", "bo", "bu",
     "ca", "ce", "ci", "co", "cu", "da", "de", "di", "do", "du",
     "fa", "fe", "fi", "fo", "fu", "ga", "ge", "gi", "go", "gu",
     "ha", "he", "hi", "ho", "hu", "ma", "me", "mi", "mo", "mu",
-    "sa", "se", "si", "so", "su", "ta", "te", "ti", "to", "tu",
+    "sa", "se", "si", "so", "su", "ta", "te", "ti", "to", "tu",//50
     "amm", "ath", "ass", "agg", "all",
     "emm", "eth", "ess", "egg", "ell",
     "imm", "ith", "iss", "igg", "ill",
     "omm", "oth", "oss", "ogg", "oll",
     "umm", "uth", "uss", "ugg", "ull",
+    "dur", "bur", "gur", "thur", "nur",
+    "endil", "andil", "indil", "ondil", "undil",
+    "thig", "thim", "thin", "thir", "this"
+    "ain", "din", "fin", "gin", "lin"
+    "aith", "fith", "thith", "nith", "sith",//100
+    "aeth", "feth", "theth", "neth", "seth"
 };
 
 #define NUM_ITEM_NAMES (3)
@@ -528,7 +550,7 @@ main(int    argc   __attribute__((unused)),
     size_t h_ini_lvl = 2;
     size_t e_ini_lvl = 1;
 
-    hero_t hero = roll_hero("Tim the Enchanter", h_ini_lvl);
+    hero_t hero = roll_hero(h_ini_lvl);
 
     print_portrait(&hero, PORTRAIT_ROW, PORTRAIT_COL);
 
@@ -589,8 +611,7 @@ roll_mob(const char * name,
 
 
 hero_t
-roll_hero(const char * name,
-          const size_t lvl)
+roll_hero(const size_t lvl)
 {
     hero_t h;
 
@@ -604,13 +625,37 @@ roll_hero(const char * name,
 
     gen_base_stats(&h);
 
-    if (name && *name) {
-        strcpy(h.name, name);
-    }
-    else {
+    for (;;) {
+        memset(h.name, '\0', MAX_NAME_LEN);
         strcat(h.name, prefix_list[rand() % MAX_PREFIX]);
         strcat(h.name, suffix_list[rand() % MAX_SUFFIX]);
+
+        clear_screen();
+        printf("character name: %s\n", h.name);
+        printf("y to accept, n to regenerate\n");
+
+        size_t done = 0;
+        char   choice = (char) fgetc(stdin);
+
+        switch (choice) {
+        case 'y':
+        case 'Y':
+            done = 1;
+            break;
+
+        case 'n':
+        case 'N':
+
+        default:
+            break;
+        }
+
+        while (fgetc(stdin) != '\n');
+
+        if (done) { break; }
     }
+
+    clear_screen();
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
         h.items[i].slot = NO_ITEM;
@@ -620,14 +665,114 @@ roll_hero(const char * name,
         h.inventory[i].slot = NO_ITEM;
     }
 
-    h.items[MAIN_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, MAIN_HAND,
-                                   PIERCING);
-    h.items[OFF_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, OFF_HAND,
-                                   PIERCING);
+    for (;;) {
+        clear_screen();
+        printf("choose specialization:\n");
+        printf("  t - Thief. Unlocks back stab, +10%% agi.\n");
+        printf("  b - Barbarian. Unlocks crushing blow, +10%% str.\n");
+        printf("  s - Soldier. Unlocks shield bash, +5%% str, +5%% agi.\n");
+        printf("  p - Priest. Unlocks divine heal, +5%% wis, +5%% spr.\n");
+        printf("  d - Druid. Unlocks Shapeshift, +5%% agi, +5%% spr.\n");
+        printf("  w - Wizard. Unlocks mana font, +5%% wis, +5%% spr.\n");
+        printf("  n - Necromancer. Unlocks felstrike, +5%% wis, +5%% agi.\n");
+        printf("  k - Knight. Unlocks shield wall, +10%% sta.\n");
+        printf("  g - Geomancer. Unlocks rock weapon, +5%% str, +5%% wis.\n");
 
-    gen_item_set(&h, h.level, COMMON, RANDOM_A);
+        size_t done = 0;
+        char   choice = (char) fgetc(stdin);
 
-    h.cooldowns[BACK_STAB].unlocked = 1;
+
+        switch (choice) {
+        case 't':
+        case 'T':
+            h.items[MAIN_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, MAIN_HAND,
+                                           PIERCING);
+            h.cooldowns[BACK_STAB].unlocked = 1;
+            done = 1;
+            break;
+
+        case 'b':
+        case 'B':
+            h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+                                         RANDOM_W);
+            h.cooldowns[CRUSHING_BLOW].unlocked = 1;
+            done = 1;
+            break;
+
+        case 's':
+        case 'S':
+            h.items[MAIN_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, MAIN_HAND,
+                                          RANDOM_W);
+            h.items[OFF_HAND] = gen_item(0, h.level, COMMON, 0, SHIELD, OFF_HAND,
+                                          NO_WEAPON);
+
+            h.cooldowns[SHIELD_BASH].unlocked = 1;
+            done = 1;
+            break;
+
+        case 'p':
+        case 'P':
+            h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+                                         BLUNT);
+
+            h.cooldowns[DIVINE_HEAL].unlocked = 1;
+            done = 1;
+            break;
+
+        case 'd':
+        case 'D':
+            h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+                                         BLUNT);
+
+            h.cooldowns[SHAPESHIFT].unlocked = 1;
+            done = 1;
+            break;
+
+        case 'w':
+        case 'W':
+            h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+                                         BLUNT);
+
+            h.cooldowns[FIREBALL].unlocked = 1;
+            done = 1;
+            break;
+
+        case 'n':
+        case 'N':
+            h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+                                         BLUNT);
+
+            h.cooldowns[FEL_STRIKE].unlocked = 1;
+            done = 1;
+            break;
+
+        case 'k':
+        case 'K':
+            h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+                                         BLUNT);
+
+            h.cooldowns[SHIELD_WALL].unlocked = 1;
+            done = 1;
+            break;
+
+        case 'g':
+        case 'G':
+            h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+                                         BLUNT);
+
+            h.cooldowns[ROCK_WEAPON].unlocked = 1;
+            done = 1;
+            break;
+        }
+
+        while (fgetc(stdin) != '\n');
+
+        if (done) { break; }
+    }
+
+    clear_screen();
+
+    gen_item_set(&h, h.level, COMMON, CLOTH);
 
     set_hp_mp(&h);
 
@@ -2044,7 +2189,8 @@ size_t
 spell_enemy(hero_t *        hero,
             hero_t *        enemy,
             const element_t element,
-            const float     multiplier)
+            const float     dmg_mult,
+            const float     mp_mult)
 {
     // Need additional args for rank, type?
     {
@@ -2055,11 +2201,11 @@ spell_enemy(hero_t *        hero,
 
         switch (element) {
             case NON_ELEM:
-                cost = (size_t) floor(32 * multiplier);
+                cost = (size_t) floor(32 * mp_mult);
                 break;
 
             default:
-                cost = (size_t) floor(16 * multiplier);
+                cost = (size_t) floor(16 * mp_mult);
                 break;
         }
 
@@ -2077,7 +2223,7 @@ spell_enemy(hero_t *        hero,
     size_t       final_dmg;
     const char * what = elem_to_str(element);
 
-    base_dmg = multiplier * get_spell_dmg(hero, element, STD_SMEAR);
+    base_dmg = dmg_mult * get_spell_dmg(hero, element, STD_SMEAR);
 
     {
         // Calculate crit. Reusing dodge for now.
@@ -2432,12 +2578,12 @@ choose_spell(hero_t * hero,
     size_t status;
 
     for (;;) {
-        print_spell_prompt();
+        print_spell_prompt(hero);
 
         char act_var = (char) fgetc(stdin);
         while (fgetc(stdin) != '\n');
 
-        clear_spell_prompt();
+        clear_spell_prompt(hero);
 
         switch (act_var) {
         case 'f':
@@ -2447,7 +2593,7 @@ choose_spell(hero_t * hero,
             break;
 
         case 'i':
-            status = hero->spell(hero, enemy, FROST, 1);
+            status = hero->spell(hero, enemy, FROST, 1, 1);
             done = 1;
             break;
 
@@ -2458,9 +2604,15 @@ choose_spell(hero_t * hero,
             break;
 
         case 'u':
-            status = hero->spell(hero, enemy, NON_ELEM, 1);
+            status = hero->spell(hero, enemy, NON_ELEM, 1, 1);
             done = 1;
             break;
+
+        case 'b':
+            status = fireball(hero, enemy);
+            done = 1;
+            break;
+
 
         default:
             printf("error: invalid input %c\n", act_var);
@@ -3312,6 +3464,16 @@ del_eof(void)
 
 
 void
+clear_screen(void)
+{
+    move_cursor(1, 1);
+    del_eof();
+    return;
+}
+
+
+
+void
 print_act_prompt(void)
 {
     printf("%s", action_prompt);
@@ -3344,11 +3506,13 @@ clear_act_prompt(void)
 
 
 void
-print_spell_prompt(void)
+print_spell_prompt(const hero_t * h)
 {
-    // This list printed should really be dynamic,
-    // needs to reflect what has been unlocked by hero.
     printf("%s", spell_prompt);
+
+    if (h->cooldowns[FIREBALL].unlocked) {
+        printf("    b: fireball\n");
+    }
 
     return;
 }
@@ -3358,8 +3522,6 @@ print_spell_prompt(void)
 void
 print_attack_prompt(const hero_t * h)
 {
-    // This list printed should really be dynamic,
-    // needs to reflect what has been unlocked by hero.
     printf("\n");
     printf("  choose melee attack:\n");
     printf("    a: weapon attack\n");
@@ -3382,7 +3544,7 @@ print_attack_prompt(const hero_t * h)
 
 
 void
-clear_spell_prompt(void)
+clear_spell_prompt(const hero_t * h)
 {
     const char * ptr = spell_prompt;
 
@@ -3392,6 +3554,10 @@ clear_spell_prompt(void)
         }
 
         ++ptr;
+    }
+
+    if (h->cooldowns[FIREBALL].unlocked) {
+        printf("\r\033[A");
     }
 
     // Not sure why this one extra needed.
@@ -3467,7 +3633,7 @@ fire_strike(hero_t * hero,
 {
     // Burn the target for X fire damage, and then 10%
     // additional damage on the target's next turn.
-    size_t fire_dmg = hero->spell(hero, enemy, FIRE, 1);
+    size_t fire_dmg = hero->spell(hero, enemy, FIRE, 1, 1);
 
     if (!fire_dmg) {
         // Spell cast failed for some reason.
@@ -3490,7 +3656,7 @@ shadow_bolt(hero_t * hero,
 {
     // Blast the target for X shadow damage, and heals the caster
     // for 10% of damage delt.
-    size_t shadow_dmg = hero->spell(hero, enemy, SHADOW, 1);
+    size_t shadow_dmg = hero->spell(hero, enemy, SHADOW, 1, 1);
 
     if (!shadow_dmg) {
         // Spell cast failed for some reason.
@@ -3641,6 +3807,45 @@ shield_bash(hero_t * hero,
     hero->cooldowns[SHIELD_BASH].rounds = 4;
 
     return hp_reduced;
+}
+
+
+
+size_t
+fireball(hero_t * hero,
+         hero_t * enemy)
+{
+    // Burn the target for %150 fire damage, and then 50%
+    // additional damage over 3 rounds.
+
+    if (!hero->cooldowns[FIREBALL].unlocked) {
+        // Haven't learned this ability yet.
+        return 0;
+    }
+
+    if (hero->cooldowns[FIREBALL].rounds) {
+        printf("fireball on cooldown for %zu rounds\n",
+               hero->cooldowns[FIREBALL].rounds);
+        return 0;
+    }
+
+    size_t fire_dmg = hero->spell(hero, enemy, FIRE, 1.5, 1);
+
+    if (!fire_dmg) {
+        // Spell cast failed for some reason.
+        return 0;
+    }
+    // else, spell succeeded. Apply burn debuff.
+
+    size_t rounds = 3;
+    float  dot_mult = 0.5;
+    float  burn_amnt = (dot_mult * ((float) fire_dmg)) / rounds;
+
+    apply_debuff(enemy, "burn", DOT, FIRE, burn_amnt, rounds);
+
+    hero->cooldowns[FIREBALL].rounds = 4;
+
+    return fire_dmg;
 }
 
 
