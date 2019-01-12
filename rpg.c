@@ -6,6 +6,7 @@
 //       5. Unlockable special abilities. Druids shadeshift to animal
 //          forms, but can't equip plate or weapons to use this ability.
 //       6. Shield block mechanics? Shield spike?
+#include <fcntl.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,16 +14,15 @@
 #include <time.h>
 #include <unistd.h>
 
-//
-#define ITEM_DROP_THRESH     (10)
+// Names and items.
+#define MAX_NAME_LEN         (32)
+#define ITEM_DROP_THRESH     (10)  // 100 minus this number is drop rate.
 #define MAX_ITEMS            (11)  // Max item slots on hero.
 #define MAX_INVENTORY        (32)  // Max bag space slots on hero.
-#define MAX_NAME_LEN         (32)
-#define MAX_PROCS            (14)  // Max procs per item.
 
 // Combat multipliers
-#define HP_MULT              (4)   // max health points = 4 * stamina
-#define MP_MULT              (4)   // max mana points = 4 * wisdom
+#define HP_MULT              (4)   // Max health points = 4 * stamina.
+#define MP_MULT              (4)   // Max mana points = 4 * wisdom.
 #define SPELL_DMG_MULT       (1.6)
 #define TWO_HAND_MULT        (1.6)
 #define ONE_HAND_MULT        (0.6)
@@ -48,11 +48,18 @@
 #define SELECT_COL           (64)
 
 // Misc
-#define USLEEP_INTERVAL (500000)
+#define USLEEP_INTERVAL      (500000)
+#define RAND_BUF_LEN         (6)
+#define MAX_RAND_NUM         (65535)
 
 // Cursor row and column.
-static size_t row_ = 0;
-static size_t col_ = 0;
+static size_t   row_ = 0;
+static size_t   col_ = 0;
+
+// Random number buffers
+static uint16_t rand_buf[RAND_BUF_LEN];
+static int      urand_fd = 0;
+static size_t   pos_ = 0;
 
 // Quality of item drop and difficulty of mobs.
 typedef enum {
@@ -146,7 +153,7 @@ typedef enum {
     PRIEST          = 3, // cloth, leather, restoration
     DRUID           = 4, // cloth, leather, mail, shapeshifting
     WIZARD          = 5, // cloth, leather, spell
-    NECROMANCER     = 6, // cloth, leather, shadow life drain
+    NECROMANCER     = 6, // cloth, leather, mail, shadow life drain
     KNIGHT          = 7, // plate, shield, one hand, or two hand
     GEOMANCER       = 8, // mail, weapon imbues
     RANDOM_HUMANOID = 99
@@ -161,29 +168,49 @@ typedef enum {
     RANDOM_DRAGON = 99
 } dragon_t;
 
-#define MAX_COOLDOWNS (9)
-// These are beginner cooldown class abilities?
+#if 0
 typedef enum {
-    BACK_STAB     = 0, // Triple damage main hand dagger strike. No dodge.
-    CRUSHING_BLOW = 1, // Double damage two hand strike.
-    SHIELD_BASH   = 2, // Bash for X damage and stun for one round.
-    DIVINE_HEAL   = 3, // Heals for 100% of health over 3 rounds. No mana cost.
-    SHAPESHIFT    = 4, // Unlocks bear and cat forms.
-    FIREBALL      = 5, // Fire spell for %150 spell damage, plus 50% over 3 rounds.
-    FEL_STRIKE    = 6, // Weapon attack for X damage and heal for X.
-    SHIELD_WALL   = 7, // Reduces all damage by 90% for 3 rounds.
-    ROCK_WEAPON   = 8, // Weapon attacks also deal 50% non-elem dmg for 4 rounds.
+    // Beginner passives, unlocked at class selection.
+    QUICKNESS      = 0,  // t, +10% agility
+    PRIMAL_MIGHT   = 1,  // b, +10% strength
+    DEFTNESS       = 2,  // s, +10% one hand weapon dmg.
+    DIVINITY       = 3,  // p, +20% to all healing effects
+    NATURES_WRATH  = 4,  // d, melee attacks 10% change to trigger 50% nature dmg.
+    INSIGHT        = 5,  // w, +10% wisdom
+    NECROMANCER    = 6,  // n, +10% shadow dmg
+    DEFLECTION     = 7,  // k, block and parry % from strength
+    IMBUED_WEAPONS = 8,  // g, weapon attacks deal additional 10% non-elem dmg.
+    // Novice.
+    FLURRY         = 22, // s, 10% chance to trigger 2nd melee, can double proc.
+    FEL_TOUCH      = 26, // n, All attacks do 4% drain life.
+} passives_t;
+#endif
+
+#define MAX_COOLDOWNS (9)
+typedef enum {
+    // Beginner cooldown abilities.
+    BACK_STAB     = 0,  // Triple damage main hand dagger strike. No dodge.
+    CRUSHING_BLOW = 1,  // Double damage two hand strike.
+    SHIELD_BASH   = 2,  // Bash for X damage and stun for one round.
+    DIVINE_HEAL   = 3,  // Heals for 100% of health over 3 rounds. No mana cost.
+    SHAPESHIFT    = 4,  // Unlocks bear and cat forms.
+    FIREBALL      = 5,  // Fire spell for %150 spell damage, plus 50% over 3 rounds.
+    FEL_STRIKE    = 6,  // Weapon attack for X damage and heal for X.
+    SHIELD_WALL   = 7,  // Reduces all damage by 90% for 3 rounds.
+    ROCK_WEAPON   = 8,  // Weapon attacks also deal 50% non-elem dmg for 4 rounds.
+    // Novice.
+    METEOR        = 25, // Heavy non-elemental damage over 3 rounds.
 } cooldown_t;
 
 #define MAX_NON_COOLDOWNS (9)
-// These are beginner non-cooldown class abilities?
 typedef enum {
+    // Beginner non-cooldown abilities.
     EVASION      = 0, // Increases dodge chance by 40%, mana cost.
     ENRAGE       = 1, // Increases damage given by 30%, taken by 20%.
     BREAK_ARMOR  = 2, // Damage for X and reduces armor by 20% for 4 rounds.
     BARRIER      = 3, // Barrier that absorbs all damage, mana cost, non stacking.
     STARFIRE     = 4, // Non-elem spell damage. Mana cost.
-    MANA_FONT    = 5, // Restores 100% of mana over 3 rounds. No mana cost.
+    BLIZZARD     = 5, // Heavy frost damage over 3 rounds.
     CURSE        = 6, // Spell damage over time, mana cost, non stacking.
     POWER_STRIKE = 7, // Powerful strike for 1.5 weapon attack damage.
     EARTH_SPRING = 8, // Restores X health for 10 rounds. Stacks 3 times.
@@ -191,13 +218,18 @@ typedef enum {
 
 // Status type of debuff.
 typedef enum {
-    DOT           = 0, // Damage Over Time. Burn, curse, bleed, etc.
-    STUN          = 1, // Incapacitated completely.
-    SILENCE       = 2, // No spellcasting.
-    DISARM        = 3, // Disarms two hand or main hand.
-    SLOW          = 4, // Reduces agility.
-    WEAKEN        = 5, // Reduces strength.
-    SLEEP         = 6, // Incapacitated, but damage will awaken.
+    // Debuffs.
+    DOT           = 0,  // Damage Over Time. Burn, curse, bleed, etc.
+    STUN          = 1,  // Incapacitated completely.
+    SILENCE       = 2,  // No spellcasting.
+    DISARM        = 3,  // Disarms two hand or main hand.
+    SLOW          = 4,  // Reduces agility.
+    WEAKEN        = 5,  // Reduces strength.
+    SLEEP         = 6,  // Incapacitated, but any damage will awaken.
+    // Buffs.
+    HOT           = 30, // Heal Over Time.
+    HASTE         = 34, // Increases agility.
+    MIGHT         = 35, // Increases strength.
     RANDOM_STATUS = 99
 } db_status_t;
 
@@ -217,40 +249,53 @@ typedef struct {
     size_t restoration;
 } spell_t;
 
-#define MAX_DEBUFFS (16)
 typedef struct {
+    // Generic item struct.
     char     name[MAX_NAME_LEN + 1];
-    stats_t  attr;
-    spell_t  power;
-    spell_t  resist;
     slot_t   slot;
     armor_t  armor_type;
     weapon_t weapon_type;
-    size_t   armor;
-    size_t   stack; // 0 for non-stacking, n for amount.
- // size_t   buff_duration; // 0 for infinite, n for rounds? Not sure about this.
     tier_t   tier;
+    size_t   armor;
+    stats_t  attr;
+    spell_t  power;
+    spell_t  resist;
 } item_t;
 
-// X element damage for Y rounds.
-// Stun for Y rounds.
-// Silence spell casting for Y rounds.
 typedef struct {
+    // Generic debuff type. Examples:
+    //   X element damage for Y rounds.
+    //   Stun for Y rounds.
+    //   Silence spell casting for Y rounds.
     char        name[MAX_NAME_LEN + 1];
     db_status_t status;
     element_t   element;
     float       amnt;
     size_t      rounds; // Active rounds remaining. Debuff ends at 0.
+    size_t      wait; // Rounds to wait before debuff becomes active.
 } debuff_t;
 
 typedef struct {
+    // Manages if special ability is unlocked, and cooldown.
     size_t unlocked;
     size_t rounds;
 } cd_t;
 
 typedef struct {
+    // Manages if special ability is unlocked.
     size_t unlocked;
 } non_cd_t;
+
+#define MAX_DEBUFFS (32)
+
+typedef void   (*rpg_attack_func_t)(void * hero, void * enemy);
+typedef size_t (*rpg_spell_func_t)(void * hero, void * enemy,
+                                   const element_t elem,
+                                   const float dmg_mult,
+                                   const float mp_mult);
+typedef void   (*rpg_defend_func_t)(void * hero);
+typedef size_t (*rpg_heal_func_t)(void * hero, const float dmg_mult,
+                                  const float mp_mult);
 
 struct hero_t {
     // Common fields.
@@ -261,27 +306,30 @@ struct hero_t {
     size_t   hp;                     // Health Points.
     size_t   mp;                     // Mana Points.
     size_t   bp;                     // Barrier Points.
+    size_t   xp;                     // Experience Points.
     size_t   armor;                  // Mitigates physical damage.
     stats_t  base;                   // Base attributes. Increases with level.
     spell_t  power;                  // Enhances spell damage given.
     spell_t  resist;                 // Resists spell damage received.
-    // Need way to handle cooldowns for these...
-    void     (*attack)(struct hero_t *, struct hero_t *);
-    size_t   (*spell)(struct hero_t *, struct hero_t *, const element_t element,
-                      const float dmg_mult, const float mp_mult);
-    void     (*defend)(struct hero_t *);
-    size_t   (*heal)(struct hero_t *);
-    // hero specific fields.
-    size_t   xp;
-    item_t   items[MAX_ITEMS];       // Equipped items.
-    item_t   inventory[MAX_INVENTORY];
+    // Cooldowns, buffs, debuffs.
     cd_t     cooldowns[MAX_COOLDOWNS];
     non_cd_t non_cooldowns[MAX_NON_COOLDOWNS];
     debuff_t debuffs[MAX_DEBUFFS];
- // item_t buffs[MAX_BUFFS];       // Placeholder, not sure about this.
+    // Equipment and inventory.
+    item_t   items[MAX_ITEMS];       // Equipped items.
+    item_t   inventory[MAX_INVENTORY];
+    // Callbacks.
+    rpg_attack_func_t attack;
+    rpg_spell_func_t  spell;
+    rpg_defend_func_t defend;
+    rpg_heal_func_t   heal;
 };
 
 typedef struct hero_t hero_t;
+
+// RNG functions.
+void   init_rand(void);
+size_t safer_rand(const size_t min, const size_t max);
 
 // Basic mob gen functions.
 hero_t roll_hero(const size_t lvl);
@@ -311,6 +359,8 @@ size_t get_max_hp(const hero_t * h);
 size_t get_max_mp(const hero_t * h);
 
 // Print functions.
+char         safer_fgetc(void);
+void         clear_stdin(void);
 void         print_hero(hero_t * h, const size_t verbosity);
 void         print_equip(hero_t * h);
 item_t *     add_to_inventory(hero_t * h, item_t * new_item);
@@ -343,33 +393,50 @@ void         print_attack_prompt(const hero_t * h);
 void         clear_attack_prompt(const hero_t * h);
 void         print_spell_prompt(const hero_t * h);
 void         clear_spell_prompt(const hero_t * h);
+void         print_heal_prompt(const hero_t * h);
+void         clear_heal_prompt(const hero_t * h);
 
 // Combat functions.
 void   decision_loop(hero_t * hero, hero_t * enemy);
 size_t choose_attack(hero_t * hero, hero_t * enemy);
 size_t choose_spell(hero_t * hero, hero_t * enemy);
+size_t choose_heal(hero_t * hero);
 void   battle(hero_t * hero, hero_t * enemy);
 
-// Abilities.
-void   attack_enemy(hero_t * hero, hero_t * enemy, const item_t * weapon);
-void   weapon_attack(hero_t * hero, hero_t * enemy);
+// Baseline Abilities:
+//     melee attack.
+void   weapon_attack_cb(void * hero, void * enemy);
+void   weapon_attack_i(hero_t * hero, hero_t * enemy, const item_t * weapon);
+void   dragon_breath_cb(void * h, void * e);
+//     spell attack.
+size_t spell_attack_cb(void * h, void * e, const element_t element,
+                      const float dmg_mult, const float mp_mult);
+//     spell heal.
+size_t spell_heal_cb(void * h, const float dmg_mult,
+                    const float mp_mult);
+size_t divine_heal(hero_t * hero);
+
 size_t back_stab(hero_t * hero, hero_t * enemy);
+size_t crushing_blow(hero_t * hero, hero_t * enemy);
 size_t shield_bash(hero_t * hero, hero_t * enemy);
-void   breath(hero_t * hero, hero_t * enemy);
-size_t spell_enemy(hero_t * hero, hero_t * enemy, const element_t element,
-                   const float dmg_mult, const float mp_mult);
-size_t cure(hero_t * h);
+
+// Debuffs and cooldowns.
 void   apply_debuff(hero_t * enemy, const char * name,
-                    db_status_t status, element_t element,
-                    float amnt, size_t rounds);
+                    const db_status_t status, const element_t element,
+                    const float amnt, const size_t rounds,
+                    const size_t delay);
 size_t process_debuffs(hero_t * enemy);
 void   process_debuffs_i(hero_t * enemy, debuff_t * debuff);
+void   clear_debuffs(hero_t * enemy);
 void   process_cooldowns(hero_t * h);
 void   reset_cooldowns(hero_t * h);
 
+// Spell abilities.
 size_t fire_strike(hero_t * hero, hero_t * enemy);
 size_t shadow_bolt(hero_t * hero, hero_t * enemy);
 size_t fireball(hero_t * hero, hero_t * enemy);
+
+size_t get_spell_cost(const element_t element, const float mp_mult);
 
 float  get_melee_dmg(const hero_t * h, const item_t * weapon,
                      smear_t smear_type);
@@ -405,6 +472,7 @@ static const char * spell_prompt = "\n"
                                    "    s: shadow bolt\n"
                                    "    u: non-elemental\n";
 
+#define NUM_MOB_SUB_TYPES (4)
 // Animals.
 static const char * flying_list[] = {
     "bat", "gull", "owl", "buzzard"
@@ -447,7 +515,7 @@ static const char * fire_dragon_list[] = {
     "searing drake", "ember serpent", "inferno dragon", "magma wyrm"
 };
 
-#define MAX_PREFIX (115)
+#define MAX_PREFIX (116)
 static const char * prefix_list[MAX_PREFIX] = {
     "ab", "ae", "ag", "am", "an", "ba", "be", "bi", "bo", "bu",
     "ca", "ce", "ci", "co", "cu", "da", "de", "di", "do", "du",
@@ -465,9 +533,9 @@ static const char * prefix_list[MAX_PREFIX] = {
     "rha", "rhe", "rhi", "rho", "rhith",
     "cele", "celem", "curu", "cara", "cura",//100
     "ind", "im", "idril", "inglor", "irime",
-    "tha", "the", "tho", "thi", "thu"
-    "tham", "than", "thath", "thon", "thoth"
-    "thal", 
+    "tha", "the", "tho", "thi", "thu",
+    "tham", "than", "thath", "thon", "thoth",
+    "thal"
 };
 
 #define MAX_SUFFIX (105)
@@ -484,8 +552,8 @@ static const char * suffix_list[MAX_SUFFIX] = {
     "umm", "uth", "uss", "ugg", "ull",
     "dur", "bur", "gur", "thur", "nur",
     "endil", "andil", "indil", "ondil", "undil",
-    "thig", "thim", "thin", "thir", "this"
-    "ain", "din", "fin", "gin", "lin"
+    "thig", "thim", "thin", "thir", "this",
+    "ain", "din", "fin", "gin", "lin",
     "aith", "fith", "thith", "nith", "sith",//100
     "aeth", "feth", "theth", "neth", "seth"
 };
@@ -543,8 +611,8 @@ main(int    argc   __attribute__((unused)),
 
         srand(pid * t);
 
-        move_cursor(1, 1);
-        del_eof();
+        init_rand();
+        clear_screen();
     }
 
     size_t h_ini_lvl = 2;
@@ -593,7 +661,7 @@ roll_mob(const char * name,
          mob_t        mob)
 {
     if (mob == RANDOM_M) {
-        mob = 1 + rand() % (DRAGON);
+        mob = safer_rand(0, DRAGON);
     }
 
     switch (mob) {
@@ -617,9 +685,9 @@ roll_hero(const size_t lvl)
 
     memset(&h, 0, sizeof(h));
 
-    h.attack = weapon_attack;
-    h.spell = spell_enemy;
-    h.heal = cure;
+    h.attack = weapon_attack_cb;
+    h.spell = spell_attack_cb;
+    h.heal = spell_heal_cb;
 
     h.level = lvl ? lvl : 1;
 
@@ -627,15 +695,15 @@ roll_hero(const size_t lvl)
 
     for (;;) {
         memset(h.name, '\0', MAX_NAME_LEN);
-        strcat(h.name, prefix_list[rand() % MAX_PREFIX]);
-        strcat(h.name, suffix_list[rand() % MAX_SUFFIX]);
+        strcat(h.name, prefix_list[safer_rand(0, MAX_PREFIX - 1)]);
+        strcat(h.name, suffix_list[safer_rand(0, MAX_SUFFIX - 1)]);
 
         clear_screen();
         printf("character name: %s\n", h.name);
         printf("y to accept, n to regenerate\n");
 
         size_t done = 0;
-        char   choice = (char) fgetc(stdin);
+        char   choice = safer_fgetc();
 
         switch (choice) {
         case 'y':
@@ -645,12 +713,11 @@ roll_hero(const size_t lvl)
 
         case 'n':
         case 'N':
-
         default:
             break;
         }
 
-        while (fgetc(stdin) != '\n');
+        clear_stdin();
 
         if (done) { break; }
     }
@@ -679,8 +746,7 @@ roll_hero(const size_t lvl)
         printf("  g - Geomancer. Unlocks rock weapon, +5%% str, +5%% wis.\n");
 
         size_t done = 0;
-        char   choice = (char) fgetc(stdin);
-
+        char   choice = safer_fgetc();
 
         switch (choice) {
         case 't':
@@ -765,7 +831,7 @@ roll_hero(const size_t lvl)
             break;
         }
 
-        while (fgetc(stdin) != '\n');
+        clear_stdin();
 
         if (done) { break; }
     }
@@ -790,11 +856,11 @@ roll_humanoid(const char * name,
     memset(&h, 0, sizeof(h));
 
     h.mob_type = HUMANOID;
-    h.sub_type = rand() % (KNIGHT + 1);
+    h.sub_type = safer_rand(0, KNIGHT);
 
-    h.attack = weapon_attack;
-    h.spell = spell_enemy;
-    h.heal = cure;
+    h.attack = weapon_attack_cb;
+    h.spell = spell_attack_cb;
+    h.heal = spell_heal_cb;
 
     h.level = lvl ? lvl : 1;
 
@@ -897,13 +963,13 @@ roll_animal(const char * name,
     memset(&h, 0, sizeof(h));
 
     h.mob_type = ANIMAL;
-    h.sub_type = rand() % (BEAR + 1);
+    h.sub_type = safer_rand(0, BEAR);
 
     if (name && *name) {
         strcpy(h.name, name);
     }
     else {
-        const size_t j = rand() % 5;
+        const size_t j = safer_rand(0, NUM_MOB_SUB_TYPES);
         switch (h.sub_type) {
         case DOG:
             strcpy(h.name, dog_list[j]);
@@ -924,7 +990,7 @@ roll_animal(const char * name,
         }
     }
 
-    h.attack = weapon_attack;
+    h.attack = weapon_attack_cb;
 
     h.level = lvl ? lvl : 1;
 
@@ -990,13 +1056,13 @@ roll_dragon(const char * name,
     size_t d_lvl = (lvl / 10) + 1;
 
     h.mob_type = DRAGON;
-    h.sub_type = rand() % d_lvl;
+    h.sub_type = safer_rand(0, d_lvl);
 
     if (name && *name) {
         strcpy(h.name, name);
     }
     else {
-        const size_t j = rand() % 5;
+        const size_t j = safer_rand(0, NUM_MOB_SUB_TYPES);
         switch (h.sub_type) {
         case FOREST_DRAGON:
             strcpy(h.name, forest_dragon_list[j]);
@@ -1017,7 +1083,7 @@ roll_dragon(const char * name,
         }
     }
 
-    h.attack = weapon_attack;
+    h.attack = weapon_attack_cb;
 
     h.level = lvl ? lvl : 1;
 
@@ -1050,7 +1116,7 @@ roll_dragon(const char * name,
 
     case FIRE_DRAGON:
         // Fire breathing dragon. The real deal.
-        h.attack = breath;
+        h.attack = dragon_breath_cb;
 
         h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                      PIERCING);
@@ -1081,11 +1147,11 @@ roll_dragon(const char * name,
 void
 gen_base_stats(hero_t * h)
 {
-    h->base.sta = h->level + BASE_STAT + (rand() % BASE_STAT_VAR);
-    h->base.str = h->level + BASE_STAT + (rand() % BASE_STAT_VAR);
-    h->base.agi = h->level + BASE_STAT + (rand() % BASE_STAT_VAR);
-    h->base.wis = h->level + BASE_STAT + (rand() % BASE_STAT_VAR);
-    h->base.spr = h->level + BASE_STAT + (rand() % BASE_STAT_VAR);
+    h->base.sta = h->level + BASE_STAT + (safer_rand(0, BASE_STAT_VAR));
+    h->base.str = h->level + BASE_STAT + (safer_rand(0, BASE_STAT_VAR));
+    h->base.agi = h->level + BASE_STAT + (safer_rand(0, BASE_STAT_VAR));
+    h->base.wis = h->level + BASE_STAT + (safer_rand(0, BASE_STAT_VAR));
+    h->base.spr = h->level + BASE_STAT + (safer_rand(0, BASE_STAT_VAR));
 
     return;
 }
@@ -1125,7 +1191,7 @@ gen_item(const char * name,
     }
     else {
         if (armor_type == RANDOM_A) {
-            armor_type = rand() % (MAX_ARMOR_TYPES + 1);
+            armor_type = safer_rand(0, MAX_ARMOR_TYPES);
         }
     }
 
@@ -1134,9 +1200,9 @@ gen_item(const char * name,
         switch (armor_type) {
         case WEAPON:
             // Any of 0-2 slot_t.
-            slot = rand() % (TWO_HAND + 1);
+            slot = safer_rand(0, TWO_HAND);
             if (weapon_type == RANDOM_W) {
-                weapon_type = rand() % (BLUNT + 1);
+                weapon_type = safer_rand(0, BLUNT);
             }
             break;
 
@@ -1149,13 +1215,13 @@ gen_item(const char * name,
         case MAIL:
         case PLATE:
             // Any of 3-8 slot_t.
-            slot = 3 + (rand() % (5 + 1));
+            slot = 3 + (safer_rand(0, 5));
             break;
 
         case MISC:
         default:
             // Any of 9-10 slot_t.
-            slot = 9 + (rand() % (2));
+            slot = 9 + safer_rand(0, 1);
             break;
         }
     }
@@ -1223,23 +1289,23 @@ gen_item(const char * name,
     }
 
     if (level > 0) {
-        item.attr.sta = floor(sta_mult * tier_mult * (float) (rand() % (attr_lvl)));
-        item.attr.str = floor(str_mult * tier_mult * (float) (rand() % (attr_lvl)));
-        item.attr.agi = floor(agi_mult * tier_mult * (float) (rand() % (attr_lvl)));
-        item.attr.wis = floor(wis_mult * tier_mult * (float) (rand() % (attr_lvl)));
-        item.attr.spr = floor(spr_mult * tier_mult * (float) (rand() % (attr_lvl)));
+        item.attr.sta = floor(sta_mult * tier_mult * (float) safer_rand(0, (attr_lvl)));
+        item.attr.str = floor(str_mult * tier_mult * (float) safer_rand(0, (attr_lvl)));
+        item.attr.agi = floor(agi_mult * tier_mult * (float) safer_rand(0, (attr_lvl)));
+        item.attr.wis = floor(wis_mult * tier_mult * (float) safer_rand(0, (attr_lvl)));
+        item.attr.spr = floor(spr_mult * tier_mult * (float) safer_rand(0, (attr_lvl)));
     }
 
     if (level > 10) {
-        item.resist.fire = floor(wis_mult * tier_mult * (float) (rand() % (res_lvl)));
-        item.resist.frost = floor(wis_mult * tier_mult * (float) (rand() % (res_lvl)));
-        item.resist.shadow = floor(wis_mult * tier_mult * (float) (rand() % (res_lvl)));
+        item.resist.fire = floor(wis_mult * tier_mult * (float) safer_rand(0, (res_lvl)));
+        item.resist.frost = floor(wis_mult * tier_mult * (float) safer_rand(0, (res_lvl)));
+        item.resist.shadow = floor(wis_mult * tier_mult * (float) safer_rand(0, (res_lvl)));
     }
 
     if (level > 15) {
-        item.power.fire = floor(wis_mult * tier_mult * (float) (rand() % (pow_lvl)));
-        item.power.frost = floor(wis_mult * tier_mult * (float) (rand() % (pow_lvl)));
-        item.power.shadow = floor(wis_mult * tier_mult * (float) (rand() % (pow_lvl)));
+        item.power.fire = floor(wis_mult * tier_mult * (float) safer_rand(0, (pow_lvl)));
+        item.power.frost = floor(wis_mult * tier_mult * (float) safer_rand(0, (pow_lvl)));
+        item.power.shadow = floor(wis_mult * tier_mult * (float) safer_rand(0, (pow_lvl)));
     }
 
     if (level > procs_lvl) {
@@ -1254,7 +1320,7 @@ gen_item(const char * name,
 tier_t
 gen_item_tier(void)
 {
-    size_t trigger = rand() % 101;
+    size_t trigger = safer_rand(0, 100);
 
     if (trigger < 50) {
         return COMMON;
@@ -1278,7 +1344,7 @@ gen_item_name(char *         name,
               const slot_t   slot,
               const weapon_t weapon_type)
 {
-    size_t j = rand() % NUM_ITEM_NAMES;
+    size_t j = safer_rand(0, NUM_ITEM_NAMES - 1);
 
     switch (armor_type) {
     case CLOTH:
@@ -1428,7 +1494,7 @@ size_t
 gen_item_armor(const size_t level,
                armor_t      armor_type)
 {
-    float base_armor = level + (rand() % level);
+    float base_armor = level + safer_rand(0, level);
     float multiplier = 1.0;
 
     switch (armor_type) {
@@ -1488,7 +1554,7 @@ gen_item_set(hero_t *      h,
     }
 
     if (armor_type == RANDOM_A) {
-        i_armor_type = rand() % (PLATE + 1);
+        i_armor_type = safer_rand(0, PLATE);
     }
     else {
         i_armor_type = armor_type;
@@ -1512,14 +1578,14 @@ spawn_item_drop(hero_t * h)
     // Anything from mana potions to armor, swords, etc.
     // Tiers of quality? Rare, epic, legendary?
     // Tier of quality should be influenced by tier of mob?
-    size_t trigger = rand() % 100;
+    size_t trigger = safer_rand(0, 100);
 
     if (trigger < ITEM_DROP_THRESH) {
         return;
     }
 
     // This feels goofy.
-    size_t drop_type = rand() % 3;
+    size_t drop_type = safer_rand(0, 2);
     item_t new_item;
 
     switch (drop_type) {
@@ -1587,7 +1653,7 @@ level_up(hero_t * h)
         size_t done = 0;
 
         for (;;) {
-            char choice = (char) fgetc(stdin);
+            char choice = safer_fgetc();
 
             switch (choice) {
             case '1':
@@ -1620,7 +1686,7 @@ level_up(hero_t * h)
                 break;
             }
 
-            while (fgetc(stdin) != '\n');
+            clear_stdin();
 
             if (done) { break; }
         }
@@ -1960,6 +2026,7 @@ get_mitigation(const hero_t * h)
 size_t
 get_armor(const hero_t * h)
 {
+    // TODO: check for temporary armor buffs?
     size_t armor = h->armor;
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
@@ -2050,9 +2117,12 @@ get_spell_crit(const hero_t * h)
 
 
 void
-weapon_attack(hero_t * hero,
-              hero_t * enemy)
+weapon_attack_cb(void * h,
+                 void * e)
 {
+    hero_t * hero  = h;
+    hero_t * enemy = e;
+
     size_t main_hand = hero->items[MAIN_HAND].slot != NO_ITEM;
     size_t off_hand = hero->items[OFF_HAND].slot != NO_ITEM;
     size_t two_hand = hero->items[TWO_HAND].slot != NO_ITEM;
@@ -2061,11 +2131,11 @@ weapon_attack(hero_t * hero,
         const item_t * weapon = &hero->items[MAIN_HAND];
 
         if (main_hand && weapon->armor_type == WEAPON) {
-            attack_enemy(hero, enemy, weapon);
+            weapon_attack_i(hero, enemy, weapon);
         }
         else if (!main_hand && !two_hand) {
             // Unarmed attack.
-            attack_enemy(hero, enemy, weapon);
+            weapon_attack_i(hero, enemy, weapon);
         }
         else {
             // Something in main hand that's not a weapon. Do nothing.
@@ -2076,11 +2146,11 @@ weapon_attack(hero_t * hero,
         const item_t * weapon = &hero->items[OFF_HAND];
 
         if (off_hand && weapon->armor_type == WEAPON) {
-            attack_enemy(hero, enemy, weapon);
+            weapon_attack_i(hero, enemy, weapon);
         }
         else if (!off_hand && !two_hand) {
             // Unarmed attack.
-            attack_enemy(hero, enemy, weapon);
+            weapon_attack_i(hero, enemy, weapon);
         }
         else {
             // Something in off hand that's not a weapon. Do nothing.
@@ -2091,7 +2161,7 @@ weapon_attack(hero_t * hero,
         const item_t * weapon = &hero->items[TWO_HAND];
 
         if (two_hand && weapon->armor_type == WEAPON) {
-            attack_enemy(hero, enemy, weapon);
+            weapon_attack_i(hero, enemy, weapon);
         }
         else {
             // Something in two hand that's not a weapon. Do nothing.
@@ -2105,9 +2175,9 @@ weapon_attack(hero_t * hero,
 
 
 void
-attack_enemy(hero_t *       hero,
-             hero_t *       enemy,
-             const item_t * weapon)
+weapon_attack_i(hero_t *       hero,
+                hero_t *       enemy,
+                const item_t * weapon)
 {
     {
         // Check if attacking unit is incapacitated.
@@ -2126,7 +2196,7 @@ attack_enemy(hero_t *       hero,
     {
         // Calculate dodge first. If attack misses, nothing left to do.
         float dodge = get_dodge(enemy);
-        float trigger = rand() % 10000;
+        float trigger = safer_rand(0, 10000);
 
         if (dodge > trigger) {
             printf("%s attacked %s and missed\n", hero->name,
@@ -2146,7 +2216,7 @@ attack_enemy(hero_t *       hero,
     {
         // Calculate crit. Reusing dodge for now.
         size_t crit = get_dodge(hero);
-        size_t trigger = rand() % 10000;
+        size_t trigger = safer_rand(0, 10000);
 
         if (crit > trigger) {
             is_crit = 1;
@@ -2186,28 +2256,17 @@ END_ATTACK:
 
 
 size_t
-spell_enemy(hero_t *        hero,
-            hero_t *        enemy,
-            const element_t element,
-            const float     dmg_mult,
-            const float     mp_mult)
+spell_attack_cb(void *          h,
+                void *          e,
+                const element_t element,
+                const float     dmg_mult,
+                const float     mp_mult)
 {
-    // Need additional args for rank, type?
+    hero_t * hero  = h;
+    hero_t * enemy = e;
+
     {
-        // Get spell cost.
-        //   - Instant damage cost more than DOT.
-        //   - non elemental costs more than elemental.
-        size_t cost = 0;
-
-        switch (element) {
-            case NON_ELEM:
-                cost = (size_t) floor(32 * mp_mult);
-                break;
-
-            default:
-                cost = (size_t) floor(16 * mp_mult);
-                break;
-        }
+        size_t cost = get_spell_cost(element, mp_mult);
 
         if (!spend_mp(hero, cost)) {
             return 0;
@@ -2228,7 +2287,7 @@ spell_enemy(hero_t *        hero,
     {
         // Calculate crit. Reusing dodge for now.
         size_t crit = get_dodge(hero);
-        size_t trigger = rand() % 10000;
+        size_t trigger = safer_rand(0, 10000);
 
         if (crit > trigger) {
             is_crit = 1;
@@ -2264,20 +2323,55 @@ spell_enemy(hero_t *        hero,
 
 
 size_t
-cure(hero_t * h)
+spell_heal_cb(void *      h,
+              const float heal_mult,
+              const float mp_mult)
 {
-    const char * what = "cure";
-    const size_t cost = 16;
+    hero_t * hero = h;
 
-    if (!spend_mp(h, cost)) {
-        return 0;
+    {
+        size_t cost = get_spell_cost(RESTORATION, mp_mult);
+
+        if (!spend_mp(hero, cost)) {
+            return 0;
+        }
     }
 
-    size_t n = restore_hp(h, get_spell_dmg(h, RESTORATION, STD_SMEAR));
+    const char * what = "cure";
 
-    printf("%s healed %s for %zu hp\n", what, h->name, n);
+    float heal_amnt = floor(heal_mult * get_spell_dmg(hero, RESTORATION, STD_SMEAR));
 
-    return 1;
+    size_t n = restore_hp(hero, (size_t) heal_amnt);
+
+    printf("%s healed %s for %zu hp\n", what, hero->name, n);
+    ++row_;
+
+    return heal_amnt;
+}
+
+
+
+size_t
+get_spell_cost(const element_t element,
+               const float     mp_mult)
+
+{
+    // Get spell cost.
+    //   - Instant damage cost more than DOT.
+    //   - non elemental costs more than elemental.
+    size_t cost = 0;
+
+    switch (element) {
+        case NON_ELEM:
+            cost = (size_t) floor(32 * mp_mult);
+            break;
+
+        default:
+            cost = (size_t) floor(16 * mp_mult);
+            break;
+    }
+
+    return cost;
 }
 
 
@@ -2371,13 +2465,15 @@ regen(hero_t * h)
 
 
 void
-breath(hero_t * hero,
-       hero_t * enemy)
+dragon_breath_cb(void * h,
+                 void * e)
 {
     // Breath cannot be dodged or resisted.
     // Breath cannot crit, but has a large variance.
-    float base_dmg;
-    float smear = 0.01 * (70 + (rand () % 61));
+    hero_t * hero = h;
+    hero_t * enemy = e;
+    float    base_dmg;
+    float    smear = 0.01 * (70 + (rand () % 61));
 
     base_dmg = smear * 2 * (hero->base.str + hero->base.wis);
 
@@ -2483,6 +2579,7 @@ battle(hero_t * hero,
 
     row_ = 0;
     reset_cooldowns(hero);
+    clear_debuffs(hero);
 
     if (!hero->hp && enemy->hp) {
         printf("%s has defeated %s!\n\n", enemy->name, hero->name);
@@ -2511,8 +2608,8 @@ decision_loop(hero_t * hero,
     for (;;) {
         print_act_prompt();
 
-        char act_var = (char) fgetc(stdin);
-        while (fgetc(stdin) != '\n');
+        char act_var = safer_fgetc();
+        clear_stdin();
 
         clear_act_prompt();
 
@@ -2535,7 +2632,7 @@ decision_loop(hero_t * hero,
             break;
 
         case 'h':
-            if (hero->heal(hero)) {
+            if (choose_heal(hero)) {
                 done = 1;
             }
             else {
@@ -2580,15 +2677,14 @@ choose_spell(hero_t * hero,
     for (;;) {
         print_spell_prompt(hero);
 
-        char act_var = (char) fgetc(stdin);
-        while (fgetc(stdin) != '\n');
+        char act_var = safer_fgetc();
+        clear_stdin();
 
         clear_spell_prompt(hero);
 
         switch (act_var) {
         case 'f':
             status = fire_strike(hero, enemy);
-            //status = hero->spell(hero, enemy, FIRE);
             done = 1;
             break;
 
@@ -2599,7 +2695,6 @@ choose_spell(hero_t * hero,
 
         case 's':
             status = shadow_bolt(hero, enemy);
-            //status = hero->spell(hero, enemy, SHADOW, 1);
             done = 1;
             break;
 
@@ -2628,6 +2723,39 @@ choose_spell(hero_t * hero,
 
 
 size_t
+choose_heal(hero_t * hero)
+{
+    size_t done = 0;
+    size_t status;
+
+    for (;;) {
+        print_heal_prompt(hero);
+
+        char act_var = safer_fgetc();
+        clear_stdin();
+
+        clear_heal_prompt(hero);
+
+        switch (act_var) {
+        case 'd':
+            status = divine_heal(hero);
+            done = 1;
+            break;
+
+        default:
+            printf("error: invalid input %c\n", act_var);
+            break;
+        }
+
+        if (done) { break; }
+    }
+
+    return status;
+}
+
+
+
+size_t
 choose_attack(hero_t * hero,
               hero_t * enemy)
 {
@@ -2637,8 +2765,8 @@ choose_attack(hero_t * hero,
     for (;;) {
         print_attack_prompt(hero);
 
-        char act_var = (char) fgetc(stdin);
-        while (fgetc(stdin) != '\n');
+        char act_var = safer_fgetc();
+        clear_stdin();
 
         clear_attack_prompt(hero);
 
@@ -2650,6 +2778,11 @@ choose_attack(hero_t * hero,
 
         case 'b':
             status = back_stab(hero, enemy);
+            done = 1;
+            break;
+
+        case 'c':
+            status = crushing_blow(hero, enemy);
             done = 1;
             break;
 
@@ -2813,8 +2946,13 @@ print_equip(hero_t * h)
     char pretty_name[MAX_NAME_LEN + 1];
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        sprintf_item_name(pretty_name, &h->items[i]);
+        if (h->items[i].slot == NO_ITEM) {
+            printf("  %s:        \n", slot_to_str(i));
 
+            continue;
+        }
+
+        sprintf_item_name(pretty_name, &h->items[i]);
         printf("  %s: \e[1;32m%s\e[0m (%s)\n", slot_to_str(i), pretty_name,
                armor_to_str(h->items[i].armor_type));
     }
@@ -3021,11 +3159,11 @@ choose_inventory(hero_t * h,
     for (;;) {
         print_inventory_prompt();
 
-        char act_var = (char) fgetc(stdin);
+        char act_var = safer_fgetc();
 
         if (act_var == '\033') {
-            fgetc(stdin);
-            act_var = (char) fgetc(stdin);
+            safer_fgetc();
+            act_var = safer_fgetc();
 
             switch (act_var) {
             case 'A':
@@ -3088,7 +3226,7 @@ choose_inventory(hero_t * h,
         print_selection(h, selection, new_item);
         print_inventory(h, selection, new_item);
 
-        while (fgetc(stdin) != '\n');
+        clear_stdin();
 
         if (done) { break; }
     }
@@ -3520,6 +3658,37 @@ print_spell_prompt(const hero_t * h)
 
 
 void
+print_heal_prompt(const hero_t * h)
+{
+    printf("\n");
+    printf("  choose heal spell:\n");
+
+    if (h->cooldowns[DIVINE_HEAL].unlocked) {
+        printf("    d: divine heal\n");
+    }
+
+    return;
+}
+
+
+
+void
+clear_heal_prompt(const hero_t * h)
+{
+    printf("\r\033[A");
+
+    if (h->cooldowns[DIVINE_HEAL].unlocked) {
+        printf("\r\033[A");
+    }
+
+    printf("\r\033[A");
+
+    return;
+}
+
+
+
+void
 print_attack_prompt(const hero_t * h)
 {
     printf("\n");
@@ -3643,7 +3812,7 @@ fire_strike(hero_t * hero,
 
     float burn_amnt = 0.1 * ((float) fire_dmg);
 
-    apply_debuff(enemy, "burn", DOT, FIRE, burn_amnt, 1);
+    apply_debuff(enemy, "burn", DOT, FIRE, burn_amnt, 1, 0);
 
     return fire_dmg;
 }
@@ -3736,6 +3905,69 @@ back_stab(hero_t * hero,
     return hp_reduced;
 }
 
+
+
+size_t
+crushing_blow(hero_t * hero,
+              hero_t * enemy)
+{
+    if (!hero->cooldowns[CRUSHING_BLOW].unlocked) {
+        // Haven't learned this ability yet.
+        return 0;
+    }
+
+    if (hero->cooldowns[CRUSHING_BLOW].rounds) {
+        printf("crushing blow on cooldown for %zu rounds\n",
+               hero->cooldowns[CRUSHING_BLOW].rounds);
+        return 0;
+    }
+
+    if (hero->items[TWO_HAND].slot == NO_ITEM) {
+        printf("no two hand weapon equipped\n");
+        return 0;
+    }
+
+    float  mult = 2.0;
+
+    switch (hero->items[TWO_HAND].tier) {
+        case GOOD:
+            mult = 2.33;
+            break;
+
+        case RARE:
+            mult = 2.66;
+            break;
+
+        case EPIC:
+            mult = 2.99;
+            break;
+
+        case COMMON:
+        default:
+            break;
+    }
+
+    float  sb_dmg = get_melee_dmg(hero, &hero->items[TWO_HAND], STD_SMEAR);
+    float  mitigation = get_mitigation(enemy);
+    size_t final_dmg = (size_t) floor(mult * sb_dmg * mitigation);
+
+    if (!final_dmg) {
+        // failed for some reason.
+        return 0;
+    }
+    // else, succeeded.
+
+    // Reduce enemy barrier and health.
+    size_t hp_reduced = attack_barrier(final_dmg, enemy);
+
+    printf("crushing blow hit %s for %zu hp damage\n",
+           enemy->name, hp_reduced);
+    ++row_;
+
+    hero->cooldowns[CRUSHING_BLOW].rounds = 4;
+
+    return hp_reduced;
+}
 
 
 
@@ -3802,7 +4034,7 @@ shield_bash(hero_t * hero,
            enemy->name, hp_reduced);
     ++row_;
 
-    apply_debuff(enemy, "shield bash", STUN, NON_ELEM, 0, 1);
+    apply_debuff(enemy, "shield bash", STUN, NON_ELEM, 0, 1, 0);
 
     hero->cooldowns[SHIELD_BASH].rounds = 4;
 
@@ -3841,7 +4073,7 @@ fireball(hero_t * hero,
     float  dot_mult = 0.5;
     float  burn_amnt = (dot_mult * ((float) fire_dmg)) / rounds;
 
-    apply_debuff(enemy, "burn", DOT, FIRE, burn_amnt, rounds);
+    apply_debuff(enemy, "burn", DOT, FIRE, burn_amnt, rounds, 0);
 
     hero->cooldowns[FIREBALL].rounds = 4;
 
@@ -3850,13 +4082,54 @@ fireball(hero_t * hero,
 
 
 
+size_t
+divine_heal(hero_t * hero)
+{
+    // Heal caster for 50%, and then 100%
+    // additional over 2 rounds.
+
+    if (!hero->cooldowns[DIVINE_HEAL].unlocked) {
+        // Haven't learned this ability yet.
+        return 0;
+    }
+
+    if (hero->cooldowns[DIVINE_HEAL].rounds) {
+        printf("divine heal on cooldown for %zu rounds\n",
+               hero->cooldowns[DIVINE_HEAL].rounds);
+        return 0;
+    }
+
+    size_t heal_amnt = hero->heal(hero, 0.5, 0.5);
+
+    if (!heal_amnt) {
+        // Spell cast failed for some reason.
+        return 0;
+    }
+    // else, spell succeeded. Apply restore buff.
+
+    size_t wait = 1;
+    size_t rounds = 2;
+    float  hot_mult = 2;
+    float  hot_amnt = (hot_mult * ((float) heal_amnt)) / rounds;
+
+    apply_debuff(hero, "divine restoration", HOT, RESTORATION,
+                 hot_amnt, rounds, wait);
+
+    hero->cooldowns[DIVINE_HEAL].rounds = 4;
+
+    return heal_amnt;
+}
+
+
+
 void
-apply_debuff(hero_t *     enemy,
-             const char * name,
-             db_status_t  status,
-             element_t    element,
-             float        amnt,
-             size_t       rounds)
+apply_debuff(hero_t *          enemy,
+             const char *      name,
+             const db_status_t status,
+             const element_t   element,
+             const float       amnt,
+             const size_t      rounds,
+             const size_t      delay)
 {
     debuff_t * db = 0;
 
@@ -3881,6 +4154,7 @@ apply_debuff(hero_t *     enemy,
     db->element = element;
     db->amnt = amnt;
     db->rounds = rounds;
+    db->wait = delay;
 
     return;
 }
@@ -3907,17 +4181,19 @@ process_debuffs(hero_t * enemy)
 
 
 void
-process_debuffs_i(hero_t *  enemy,
+process_debuffs_i(hero_t *   enemy,
                   debuff_t * debuff)
 {
+    if (debuff->wait) {
+        debuff->wait--;
+        return;
+    }
+
     const char * name = debuff->name;
     db_status_t  db_status = debuff->status;
     element_t    element = debuff->element;
     float        amnt = debuff->amnt;
-
-    debuff->rounds--;
-
-    size_t dmg = 0;
+    size_t       dmg = 0;
 
     switch (db_status) {
     case DOT:
@@ -3933,12 +4209,34 @@ process_debuffs_i(hero_t *  enemy,
         printf("%s stunned %s\n", name, enemy->name);
         break;
 
+    case HOT:
+        dmg = restore_hp(enemy, (size_t) floor(amnt));
+        printf("%s did %zu healing to %s\n", name, dmg, enemy->name);
+        break;
+
     default:
         // Do nothing
         break;
     }
 
     ++row_;
+    debuff->rounds--;
+
+    return;
+}
+
+
+
+void
+clear_debuffs(hero_t * enemy)
+{
+    for (size_t i = 0; i < MAX_DEBUFFS; ++i) {
+        if (!enemy->debuffs[i].rounds) {
+            continue;
+        }
+
+        memset(&enemy->debuffs[i], 0, sizeof(debuff_t));
+    }
 
     return;
 }
@@ -3968,4 +4266,97 @@ reset_cooldowns(hero_t * h)
     }
 
     return;
+}
+
+
+
+char
+safer_fgetc(void)
+{
+    int n = fgetc(stdin);
+
+    //printf("fgetc(stdin) returned %d\n", n);
+    //fflush(stdout);
+
+    if (n > 0 && n < 255) {
+        return (char) n;
+    }
+
+    clearerr(stdin);
+    return '\0';
+}
+
+
+
+void
+clear_stdin(void)
+{
+    size_t done = 0;
+
+    for (;;) {
+        char n = safer_fgetc();
+
+        switch (n) {
+        case '\0':
+        case '\n':
+            done = 1;
+            break;
+
+        default:
+            break;
+        }
+
+        if (done) { break; }
+    }
+
+    return;
+}
+
+
+
+void
+init_rand(void)
+{
+    urand_fd = open("/dev/urandom", O_RDONLY);
+
+    if (urand_fd <= 0) { exit(1); }
+
+    ssize_t n = read(urand_fd, rand_buf, sizeof(rand_buf));
+
+    if (n != sizeof(rand_buf)) { exit(1); }
+
+    pos_ = 0;
+
+    return;
+}
+
+
+
+size_t
+safer_rand(const size_t min,
+           const size_t max)
+{
+    if (!urand_fd) {
+        fprintf(stderr, "error: do not call safer_rand before init!\n");
+        exit(1);
+    }
+
+    if (max <= min) { return 0; }
+
+    size_t range = (max + 1) - min;
+    size_t shift = MAX_RAND_NUM % range;
+
+    if (pos_ > RAND_BUF_LEN - 1) {
+        ssize_t n = read(urand_fd, rand_buf, sizeof(rand_buf));
+
+        if (n != sizeof(rand_buf)) { exit(1); }
+
+        pos_ = 0;
+    }
+
+    size_t result = ((rand_buf[pos_] - shift) % range) + min;
+
+    pos_++;
+
+    return result;
 }
