@@ -5,7 +5,7 @@
 //          next span of levels?
 //       5. Unlockable special abilities. Druids shadeshift to animal
 //          forms, but can't equip plate or weapons to use this ability.
-//       6. Shield block mechanics? Shield spike?
+//       6. Weather.
 #include <fcntl.h>
 #include <math.h>
 #include <stdio.h>
