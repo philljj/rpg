@@ -8,7 +8,6 @@
 static size_t row_ = 0;
 static size_t col_ = 0;
 
-
 
 
 void
@@ -152,6 +151,7 @@ print_heal_prompt(const hero_t * h)
 {
     printf("\n");
     printf("  choose heal spell:\n");
+    printf("    h: Heal I\n");
 
     if (h->cooldowns[DIVINE_HEAL].unlocked) {
         printf("    d: divine heal\n");
@@ -165,6 +165,7 @@ print_heal_prompt(const hero_t * h)
 void
 clear_heal_prompt(const hero_t * h)
 {
+    printf("\r\033[A");
     printf("\r\033[A");
 
     if (h->cooldowns[DIVINE_HEAL].unlocked) {

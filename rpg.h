@@ -1,7 +1,16 @@
 #if !defined(RPG_H)
 #define RPG_H
 
+
+// RNG functions.
+void   init_rand(void);
+size_t safer_rand(const size_t min, const size_t max);
+
+
 #include <stdint.h>
+
+#include "item.h"
+#include "tui.h"
 
 // Geomancer and druid will use these flags?...
 // Interact with them differently?
@@ -34,8 +43,6 @@ typedef uint32_t seasons_flags_t;
 #define SEASONS_SUMMER = 0x00000002u; // On summer, off winter.
 
 // Names and items.
-#define MAX_NAME_LEN         (32)
-#define ITEM_DROP_THRESH     (10)  // 100 minus this number is drop rate.
 #define MAX_ITEMS            (11)  // Max item slots on hero.
 #define MAX_INVENTORY        (32)  // Max bag space slots on hero.
 
@@ -72,58 +79,6 @@ typedef uint32_t seasons_flags_t;
 #define USLEEP_INTERVAL      (500000)
 #define RAND_BUF_LEN         (6)
 #define MAX_RAND_NUM         (65535)
-
-// Quality of item drop and difficulty of mobs.
-typedef enum {
-    COMMON      = 0,
-    GOOD        = 1,
-    RARE        = 2,
-    EPIC        = 3,
-    RANDOM_TIER = 99
-} tier_t;
-
-// slot_t is where item goes.
-typedef enum {
-    MAIN_HAND = 0,
-    OFF_HAND  = 1,
-    TWO_HAND  = 2,
-    HEAD      = 3,
-    SHOULDERS = 4,
-    CHEST     = 5,
-    LEGS      = 6,
-    HANDS     = 7,
-    FEET      = 8,
-    RING      = 9,
-    TRINKET   = 10,
-    HP_POTION = 20,
-    MP_POTION = 21,
-    BP_POTION = 22,
-    NO_ITEM   = 98,
-    RANDOM_S  = 99
-} slot_t;
-
-// armor_t is what item is.
-#define MAX_ARMOR_TYPES (7)
-typedef enum {
-    CLOTH    = 0,
-    LEATHER  = 1,
-    MAIL     = 2,
-    PLATE    = 3,
-    SHIELD   = 4,
-    WEAPON   = 5,
-    MISC     = 6,
-    NO_ARMOR = 98,
-    RANDOM_A = 99
-} armor_t;
-
-// weapon_t is what weapon type the item is.
-typedef enum {
-    PIERCING  = 0,
-    EDGED     = 1,
-    BLUNT     = 2,
-    NO_WEAPON = 98,
-    RANDOM_W  = 99
-} weapon_t;
 
 // Spell schools.
 typedef enum {
@@ -245,34 +200,6 @@ typedef enum {
     RANDOM_STATUS = 99
 } db_status_t;
 
-typedef struct {
-    size_t sta;  // HP
-    size_t str;  // weapon damage (favors blunt and two hand)
-    size_t agi;  // dodge, weapon damage (favors piercing and one hand)
-    size_t wis;  // MP, spell damage
-    size_t spr;  // HP and MP regen
-} stats_t;
-
-typedef struct {
-    size_t fire;
-    size_t frost;
-    size_t shadow;
-    size_t non_elemental;
-    size_t restoration;
-} spell_t;
-
-typedef struct {
-    // Generic item struct.
-    char     name[MAX_NAME_LEN + 1];
-    slot_t   slot;
-    armor_t  armor_type;
-    weapon_t weapon_type;
-    tier_t   tier;
-    size_t   armor;
-    stats_t  attr;
-    spell_t  power;
-    spell_t  resist;
-} item_t;
 
 typedef struct {
     // Generic debuff type. Examples:
@@ -309,7 +236,8 @@ typedef void   (*rpg_defend_func_t)(void * hero);
 typedef size_t (*rpg_heal_func_t)(void * hero, const float dmg_mult,
                                   const float mp_mult);
 
-typedef struct {
+//typedef struct {
+struct hero_t {
     // Common fields.
     char     name[MAX_NAME_LEN + 1]; // There are Some who call me Tim.
     mob_t    mob_type;
@@ -335,7 +263,8 @@ typedef struct {
     rpg_spell_func_t  spell;
     rpg_defend_func_t defend;
     rpg_heal_func_t   heal;
-} hero_t;
+//} hero_t;
+};
 
 // Basic mob gen functions.
 hero_t roll_hero(const size_t lvl);
@@ -344,18 +273,8 @@ hero_t roll_humanoid(const char * name, const size_t lvl);
 hero_t roll_animal(const char * name, const size_t lvl);
 hero_t roll_dragon(const char * name, const size_t lvl);
 void   gen_base_stats(hero_t * h);
-item_t create_item(const char * name, const size_t level, const slot_t slot,
-                   const size_t is_weapon);
-void   spawn_item_drop(hero_t * h);
-tier_t gen_item_tier(void);
-item_t gen_item(const char * name, const size_t level, tier_t tier,
-                size_t is_weapon, armor_t armor_type, slot_t slot,
-                weapon_t weapon_type);
-void   gen_item_name(char * name, const armor_t armor_type, const slot_t slot,
-                     weapon_t weapon_type);
-size_t gen_item_armor(const size_t level, armor_t armor_type);
-void   gen_item_set(hero_t * h, const size_t lvl,
-                    const tier_t tier, const armor_t armor_type);
+
+
 stats_t get_total_stats(const hero_t * h);
 
 
