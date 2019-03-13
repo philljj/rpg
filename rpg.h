@@ -1,16 +1,15 @@
 #if !defined(RPG_H)
 #define RPG_H
 
-
 // RNG functions.
 void   init_rand(void);
 size_t safer_rand(const size_t min, const size_t max);
-
 
 #include <stdint.h>
 
 #include "item.h"
 #include "tui.h"
+#include "combat_stats.h"
 
 // Geomancer and druid will use these flags?...
 // Interact with them differently?
@@ -46,20 +45,6 @@ typedef uint32_t seasons_flags_t;
 #define MAX_ITEMS            (11)  // Max item slots on hero.
 #define MAX_INVENTORY        (32)  // Max bag space slots on hero.
 
-// Combat multipliers
-#define HP_MULT              (4)   // Max health points = 4 * stamina.
-#define MP_MULT              (4)   // Max mana points = 4 * wisdom.
-#define SPELL_DMG_MULT       (0.8)
-#define TWO_HAND_MULT        (0.8)
-#define ONE_HAND_MULT        (0.3)
-#define UNARMED_MULT         (0.25)
-#define ARMOR_HALF_POINT     (200) // Armor required for 50% melee reduction.
-#define DODGE_HALF_POINT     (500) // Agility required for 50% dodge.
-#define SPIRIT_REGEN_MULT    (0.5)
-#define REGEN_ROUND          (4)
-#define BASE_STAT            (7)
-#define BASE_STAT_VAR        (7)
-
 // TUI display
 #define BATTLE_TXT_ROW       (13)
 #define BATTLE_TXT_COL       (4)
@@ -80,19 +65,6 @@ typedef uint32_t seasons_flags_t;
 #define RAND_BUF_LEN         (6)
 #define MAX_RAND_NUM         (65535)
 
-// Spell schools.
-typedef enum {
-    FIRE,
-    FROST,
-    SHADOW,
-    NON_ELEM,
-    RESTORATION
-} element_t;
-
-typedef enum {
-    NO_SMEAR,
-    STD_SMEAR
-} smear_t;
 
 // Fundamental monster types, and their various sub types.
 typedef enum {
@@ -346,20 +318,6 @@ void   reset_cooldowns(hero_t * h);
 size_t fire_strike(hero_t * hero, hero_t * enemy);
 size_t shadow_bolt(hero_t * hero, hero_t * enemy);
 size_t fireball(hero_t * hero, hero_t * enemy);
-
-size_t get_spell_cost(const element_t element, const float mp_mult);
-
-float  get_melee_dmg(const hero_t * h, const item_t * weapon,
-                     smear_t smear_type);
-float  get_spell_dmg(const hero_t * h, const element_t element,
-                     smear_t smear_type);
-float  get_spell_res(const hero_t * h, const element_t element);
-float  get_elem_pow(const spell_t * power, const element_t element);
-float  get_elem_res(const spell_t * power, const element_t element);
-float  get_mitigation(const hero_t * h);
-size_t get_armor(const hero_t * h);
-float  get_resist(const hero_t * h);
-float  get_dodge(const hero_t * h);
 size_t attack_barrier(size_t final_dmg, hero_t * enemy);
 void   regen(hero_t * h);
 size_t restore_hp(hero_t * h, const size_t amnt);
@@ -509,7 +467,5 @@ static const char * plate_boots[] = { "sabatons", "greaves", "footguards" };
 // Trinkets and rings
 static const char * trinkets[] = { "pendant", "idol", "ankh" };
 static const char * rings[] = { "ring", "band", "seal" };
-
-
 
 #endif /* if !defined(RPG_H) */

@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "rpg.h"
+#include "combat_stats.h"
 #include "tui.h"
 
 // Cursor row and column.
