@@ -1,2 +1,2 @@
 #!/bin/bash
-gcc -std=c99 -Wall -Wextra combat_stats.c item.c tui.c rpg.c -o rpg
+gcc -std=c99 -Wall -Wextra ability_callbacks.c combat_stats.c item.c tui.c rpg.c -o rpg

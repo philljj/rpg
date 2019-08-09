@@ -64,17 +64,13 @@ get_melee_dmg(const hero_t * h,
     case MAIN_HAND:
         S -= 0.2;
         A += 0.2;
-
         mult = ONE_HAND_MULT;
-
         break;
 
     case OFF_HAND:
         S -= 0.2;
         A += 0.2;
-
         mult = ONE_HAND_MULT;
-
         break;
 
     case TWO_HAND:
@@ -84,9 +80,7 @@ get_melee_dmg(const hero_t * h,
 
         S += 0.2;
         A -= 0.2;
-
         mult = TWO_HAND_MULT;
-
         break;
 
     default:
@@ -302,9 +296,6 @@ get_mitigation(const hero_t * h)
     float  mitigation;
 
     mitigation = 1 - (armor / (armor + ARMOR_HALF_POINT));
-
-    // TODO: sum over armor bonuses from gear?
-    //       How will armor be calculated?
 
     return mitigation;
 }

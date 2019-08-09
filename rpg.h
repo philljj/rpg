@@ -286,17 +286,6 @@ size_t choose_spell(hero_t * hero, hero_t * enemy);
 size_t choose_heal(hero_t * hero);
 void   battle(hero_t * hero, hero_t * enemy);
 
-// Baseline Abilities:
-//     melee attack.
-void   weapon_attack_cb(void * hero, void * enemy);
-void   weapon_attack_i(hero_t * hero, hero_t * enemy, const item_t * weapon);
-void   dragon_breath_cb(void * h, void * e);
-//     spell attack.
-size_t spell_attack_cb(void * h, void * e, const element_t element,
-                      const float dmg_mult, const float mp_mult);
-//     spell heal.
-size_t spell_heal_cb(void * h, const float dmg_mult,
-                    const float mp_mult);
 size_t divine_heal(hero_t * hero);
 
 size_t back_stab(hero_t * hero, hero_t * enemy);
