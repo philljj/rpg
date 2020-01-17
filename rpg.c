@@ -1398,16 +1398,16 @@ const char *
 elem_to_str(const element_t elem)
 {
     switch (elem) {
-        case FIRE:
-            return "fire";
-        case FROST:
-            return "frost";
-        case SHADOW:
-            return "shadow";
-        case NON_ELEM:
-            return "non-elemental";
-        case RESTORATION:
-            return "restoration";
+    case FIRE:
+        return "fire";
+    case FROST:
+        return "frost";
+    case SHADOW:
+        return "shadow";
+    case NON_ELEM:
+        return "non-elemental";
+    case RESTORATION:
+        return "restoration";
     }
 }
 
@@ -1950,21 +1950,21 @@ back_stab(hero_t * hero,
     float  mult = 3.0;
 
     switch (hero->items[MAIN_HAND].tier) {
-        case GOOD:
-            mult = 3.3;
-            break;
+    case GOOD:
+        mult = 3.3;
+        break;
 
-        case RARE:
-            mult = 3.6;
-            break;
+    case RARE:
+        mult = 3.6;
+        break;
 
-        case EPIC:
-            mult = 3.9;
-            break;
+    case EPIC:
+        mult = 3.9;
+        break;
 
-        case COMMON:
-        default:
-            break;
+    case COMMON:
+    default:
+        break;
     }
 
     float  sb_dmg = get_melee_dmg(hero, &hero->items[MAIN_HAND], STD_SMEAR);
@@ -2014,21 +2014,21 @@ crushing_blow(hero_t * hero,
     float  mult = 2.0;
 
     switch (hero->items[TWO_HAND].tier) {
-        case GOOD:
-            mult = 2.33;
-            break;
+    case GOOD:
+        mult = 2.33;
+        break;
 
-        case RARE:
-            mult = 2.66;
-            break;
+    case RARE:
+        mult = 2.66;
+        break;
 
-        case EPIC:
-            mult = 2.99;
-            break;
+    case EPIC:
+        mult = 2.99;
+        break;
 
-        case COMMON:
-        default:
-            break;
+    case COMMON:
+    default:
+        break;
     }
 
     float  sb_dmg = get_melee_dmg(hero, &hero->items[TWO_HAND], STD_SMEAR);
