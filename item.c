@@ -410,12 +410,12 @@ gen_item_set(hero_t *      h,
         i_armor_type = armor_type;
     }
 
-    h->items[HEAD] = gen_item(0, i_lvl, COMMON, 0, i_armor_type, HEAD, 0);
-    h->items[SHOULDERS] = gen_item(0, i_lvl, COMMON, 0, i_armor_type, SHOULDERS, 0);
-    h->items[CHEST] = gen_item(0, i_lvl, COMMON, 0, i_armor_type, CHEST, 0);
-    h->items[LEGS] = gen_item(0, i_lvl, COMMON, 0, i_armor_type, LEGS, 0);
-    h->items[HANDS] = gen_item(0, i_lvl, COMMON, 0, i_armor_type, HANDS, 0);
-    h->items[FEET] = gen_item(0, i_lvl, COMMON, 0, i_armor_type, FEET, 0);
+    h->items[HEAD] = gen_item(0, i_lvl, i_tier, 0, i_armor_type, HEAD, 0);
+    h->items[SHOULDERS] = gen_item(0, i_lvl, i_tier, 0, i_armor_type, SHOULDERS, 0);
+    h->items[CHEST] = gen_item(0, i_lvl, i_tier, 0, i_armor_type, CHEST, 0);
+    h->items[LEGS] = gen_item(0, i_lvl, i_tier, 0, i_armor_type, LEGS, 0);
+    h->items[HANDS] = gen_item(0, i_lvl, i_tier, 0, i_armor_type, HANDS, 0);
+    h->items[FEET] = gen_item(0, i_lvl, i_tier, 0, i_armor_type, FEET, 0);
 
     return;
 }
