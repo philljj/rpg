@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 
+#include "item_stats.h"
 #include "ability_callbacks.h"
 #include "rpg.h"
 

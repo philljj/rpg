@@ -14,6 +14,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "names.h"
+#include "item_stats.h"
 #include "rpg.h"
 #include "ability_callbacks.h"
 

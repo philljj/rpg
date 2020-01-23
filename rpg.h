@@ -65,7 +65,6 @@ typedef uint32_t seasons_flags_t;
 #define RAND_BUF_LEN         (6)
 #define MAX_RAND_NUM         (65535)
 
-
 // Fundamental monster types, and their various sub types.
 typedef enum {
     HERO      = 0,
@@ -172,7 +171,6 @@ typedef enum {
     RANDOM_STATUS = 99
 } db_status_t;
 
-
 typedef struct {
     // Generic debuff type. Examples:
     //   X element damage for Y rounds.
@@ -235,7 +233,6 @@ struct hero_t {
     rpg_spell_func_t  spell;
     rpg_defend_func_t defend;
     rpg_heal_func_t   heal;
-//} hero_t;
 };
 
 // Basic mob gen functions.
@@ -314,147 +311,5 @@ size_t restore_mp(hero_t * h, const size_t amnt);
 size_t spend_hp(hero_t * h, const size_t amnt);
 size_t spend_mp(hero_t * h, const size_t amnt);
 
-// Prompts.
-static const char * action_prompt = "\n"
-                                    "  choose action:\n"
-                                    "    a: attack\n"
-                                    "    s: spell\n"
-                                    "    d: defend\n"
-                                    "    h: heal\n"
-                                    "    i: inventory\n";
-
-static const char * spell_prompt = "\n"
-                                   "  choose spell:\n"
-                                   "    f: fire strike\n"
-                                   "    i: ice\n"
-                                   "    s: shadow bolt\n"
-                                   "    u: non-elemental\n";
-
-#define NUM_MOB_SUB_TYPES (4)
-// Animals.
-static const char * flying_list[] = {
-    "bat", "gull", "owl", "buzzard"
-};
-
-static const char * dog_list[] = {
-    "starving wolf", "coyote", "bloodhound", "dire wolf"
-};
-
-static const char * cat_list[] = {
-    "starving panther", "mountain lion", "shadowcat", "tiger"
-};
-
-static const char * boar_list[] = {
-    "boar", "tusked boar", "pig", "great boar"
-};
-
-static const char * bear_list[] = {
-    "brown bear", "black bear", "polar bear", "dire bear"
-};
-
-// Dragons.
-static const char * whelp_list[] = {
-    "whelp", "forest whelp", "whelpling", "searing whelp"
-};
-
-static const char * forest_dragon_list[] = {
-    "verdant dragon", "forest dragon", "moss drake", "green wyrm"
-};
-
-static const char * sand_dragon_list[] = {
-    "sand serpent", "desert dragon", "yellow drake", "sand wyrm"
-};
-
-static const char * water_dragon_list[] = {
-    "water drake", "lake serpent", "blue drake", "deep ocean wyrm"
-};
-
-static const char * fire_dragon_list[] = {
-    "searing drake", "ember serpent", "inferno dragon", "magma wyrm"
-};
-
-#define MAX_PREFIX (116)
-static const char * prefix_list[MAX_PREFIX] = {
-    "ab", "ae", "ag", "am", "an", "ba", "be", "bi", "bo", "bu",
-    "ca", "ce", "ci", "co", "cu", "da", "de", "di", "do", "du",
-    "fa", "fe", "fi", "fo", "fu", "ga", "ge", "gi", "go", "gu",
-    "ha", "he", "hi", "ho", "hu", "ma", "me", "mi", "mo", "mu",
-    "sa", "se", "si", "so", "su", "ta", "te", "ti", "to", "tu",//50
-    "ag", "bag", "cag", "dag", "mag",
-    "al", "el", "il", "ol", "ul",
-    "isil", "ithil", "igil", "iril", "imil",
-    "aeon", "feon", "heon", "leon", "theon",
-    "ainar", "finar", "minar", "thinar", "sinar",
-    "mith", "minith", "minas", "milith", "mae",
-    "gala", "galad", "gal", "galat", "galag",
-    "bala", "balad", "bal", "balat", "balag",
-    "rha", "rhe", "rhi", "rho", "rhith",
-    "cele", "celem", "curu", "cara", "cura",//100
-    "ind", "im", "idril", "inglor", "irime",
-    "tha", "the", "tho", "thi", "thu",
-    "tham", "than", "thath", "thon", "thoth",
-    "thal"
-};
-
-#define MAX_SUFFIX (105)
-static const char * suffix_list[MAX_SUFFIX] = {
-    "ab", "ae", "ag", "am", "an", "ba", "be", "bi", "bo", "bu",
-    "ca", "ce", "ci", "co", "cu", "da", "de", "di", "do", "du",
-    "fa", "fe", "fi", "fo", "fu", "ga", "ge", "gi", "go", "gu",
-    "ha", "he", "hi", "ho", "hu", "ma", "me", "mi", "mo", "mu",
-    "sa", "se", "si", "so", "su", "ta", "te", "ti", "to", "tu",//50
-    "amm", "ath", "ass", "agg", "all",
-    "emm", "eth", "ess", "egg", "ell",
-    "imm", "ith", "iss", "igg", "ill",
-    "omm", "oth", "oss", "ogg", "oll",
-    "umm", "uth", "uss", "ugg", "ull",
-    "dur", "bur", "gur", "thur", "nur",
-    "endil", "andil", "indil", "ondil", "undil",
-    "thig", "thim", "thin", "thir", "this",
-    "ain", "din", "fin", "gin", "lin",
-    "aith", "fith", "thith", "nith", "sith",//100
-    "aeth", "feth", "theth", "neth", "seth"
-};
-
-#define NUM_ITEM_NAMES (3)
-// Main hand, offhand, and two hand.
-static const char * shields[] = { "buckler", "pavise", "targe" };
-static const char * one_hand_swords[] = { "scimitar", "sabre", "shortsword" };
-static const char * one_hand_piercing[] = { "dagger", "dirk", "shard" };
-static const char * one_hand_blunt[] = { "mace", "hammer", "cudgel" };
-static const char * two_hand_swords[] = { "bastard sword", "claymore", "longsword" };
-static const char * two_hand_piercing[] = { "lance", "trident", "spear" };
-static const char * two_hand_blunt[] = { "staff", "warhammer", "maul" };
-// Cloth
-static const char * cloth_helm[] = { "hood", "hat", "hat" };
-static const char * cloth_shoulders[] = { "amice", "mantle", "shoulders" };
-static const char * cloth_chest[] = { "robe", "vest", "shirt" };
-static const char * cloth_gloves[] = { "mitts", "handwraps", "gloves" };
-static const char * cloth_pants[] = { "pants", "breeches", "shorts" };
-static const char * cloth_boots[] = { "sandals", "slippers", "boots" };
-// Leather
-static const char * leather_helm[] = { "hood", "hat", "hat" };
-static const char * leather_shoulders[] = { "amice", "mantle", "shoulders" };
-static const char * leather_chest[] = { "brigandine", "vest", "shirt" };
-static const char * leather_gloves[] = { "gloves", "handguards", "gloveletts" };
-static const char * leather_pants[] = { "pants", "leggings", "shorts" };
-static const char * leather_boots[] = { "sandals", "slippers", "boots" };
-// Mail
-static const char * mail_helm[] = { "coif", "crown", "hat" };
-static const char * mail_shoulders[] = { "amice", "mantle", "shoulders" };
-static const char * mail_chest[] = { "hauberk", "vest", "shirt" };
-static const char * mail_gloves[] = { "gauntlets", "handguards", "grips" };
-static const char * mail_pants[] = { "chausses", "leggings", "shorts" };
-static const char * mail_boots[] = { "sandals", "slippers", "boots" };
-// Plate
-static const char * plate_helm[] = { "helm", "barbute", "hat" };
-static const char * plate_shoulders[] = { "pauldrons", "mantle", "shoulders" };
-static const char * plate_chest[] = { "breastplate", "vest", "cuirass" };
-static const char * plate_gloves[] = { "gauntlets", "fists", "shorts" };
-static const char * plate_pants[] = { "legplates", "leggings", "cuisses" };
-static const char * plate_boots[] = { "sabatons", "greaves", "footguards" };
-// Trinkets and rings
-static const char * trinkets[] = { "pendant", "idol", "ankh" };
-static const char * rings[] = { "ring", "band", "seal" };
 
 #endif /* if !defined(RPG_H) */

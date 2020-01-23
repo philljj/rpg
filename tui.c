@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "item_stats.h"
 #include "rpg.h"
 #include "combat_stats.h"
 #include "tui.h"
@@ -8,6 +9,22 @@
 // Cursor row and column.
 static size_t row_ = 0;
 static size_t col_ = 0;
+
+// Prompts.
+static const char * action_prompt = "\n"
+                                    "  choose action:\n"
+                                    "    a: attack\n"
+                                    "    s: spell\n"
+                                    "    d: defend\n"
+                                    "    h: heal\n"
+                                    "    i: inventory\n";
+
+static const char * spell_prompt = "\n"
+                                   "  choose spell:\n"
+                                   "    f: fire strike\n"
+                                   "    i: ice\n"
+                                   "    s: shadow bolt\n"
+                                   "    u: non-elemental\n";
 
 
 

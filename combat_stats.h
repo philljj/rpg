@@ -29,7 +29,6 @@ typedef enum {
     RESTORATION
 } element_t;
 
-#include "item.h"
 #include "rpg.h"
 
 size_t get_spell_cost(const element_t element, const float mp_mult);

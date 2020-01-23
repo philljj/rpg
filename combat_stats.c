@@ -1,7 +1,9 @@
 #include <math.h>
 #include <unistd.h>
 
+#include "item_stats.h"
 #include "combat_stats.h"
+#include "item.h"
 
 
 

@@ -3,8 +3,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "item_stats.h"
 #include "item.h"
 #include "rpg.h"
+
+#define ITEM_DROP_THRESH     (10)  // 100 minus this number is drop rate.
+
+static tier_t gen_item_tier(void);
+static size_t gen_item_armor(const size_t level, armor_t armor_type);
+static void   gen_item_name(char * name, const armor_t armor_type,
+                            const slot_t slot, weapon_t weapon_type);
 
 
 
