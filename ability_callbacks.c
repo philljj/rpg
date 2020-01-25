@@ -1,9 +1,14 @@
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "item_stats.h"
-#include "ability_callbacks.h"
+#include "spell_type.h"
 #include "rpg.h"
+#include "combat_stats.h"
+#include "ability_callbacks.h"
+#include "tui.h"
 
 // TODO: use return codes and let calling function
 //       decide what to print. These functions

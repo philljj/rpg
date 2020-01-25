@@ -1,11 +1,15 @@
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "item_names.h"
 #include "item_stats.h"
-#include "item.h"
+#include "spell_type.h"
 #include "rpg.h"
+#include "item.h"
+#include "tui.h"
 
 #define ITEM_DROP_THRESH     (10)  // 100 minus this number is drop rate.
 

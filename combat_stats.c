@@ -1,9 +1,11 @@
 #include <math.h>
+#include <stdint.h>
 #include <unistd.h>
 
 #include "item_stats.h"
+#include "spell_type.h"
+#include "rpg.h"
 #include "combat_stats.h"
-#include "item.h"
 
 
 

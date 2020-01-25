@@ -1,7 +1,9 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "item_stats.h"
+#include "spell_type.h"
 #include "rpg.h"
 #include "combat_stats.h"
 #include "tui.h"

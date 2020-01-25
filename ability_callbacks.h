@@ -1,9 +1,5 @@
 #if !defined(ABILITY_CB_H)
 #define ABILITY_CB_H
-
-#include <stdlib.h>
-#include "combat_stats.h"
-
 void   weapon_attack_cb(void * hero, void * enemy);
 void   dragon_breath_cb(void * h, void * e);
 size_t spell_attack_cb(void * h, void * e, const element_t element,

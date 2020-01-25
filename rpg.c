@@ -8,6 +8,7 @@
 //       6. Weather.
 #include <fcntl.h>
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,7 +17,11 @@
 
 #include "names.h"
 #include "item_stats.h"
+#include "spell_type.h"
 #include "rpg.h"
+#include "item.h"
+#include "tui.h"
+#include "combat_stats.h"
 #include "ability_callbacks.h"
 
 // Random number buffers
@@ -1411,6 +1416,8 @@ elem_to_str(const element_t elem)
     case RESTORATION:
         return "restoration";
     }
+
+    return "error: what is this?";
 }
 
 

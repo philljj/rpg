@@ -20,17 +20,6 @@ typedef enum {
     STD_SMEAR
 } smear_t;
 
-// Spell schools.
-typedef enum {
-    FIRE,
-    FROST,
-    SHADOW,
-    NON_ELEM,
-    RESTORATION
-} element_t;
-
-#include "rpg.h"
-
 size_t get_spell_cost(const element_t element, const float mp_mult);
 
 float  get_melee_dmg(const hero_t * h, const item_t * weapon,
