@@ -1,5 +1,4 @@
 #!/bin/bash
-
 run_dir="run"
 bin_dir="run/bin"
 
@@ -12,12 +11,10 @@ function dir_exists {
   dir=$1
 
   if [ ! -d $dir ]; then
-    "run configure script before trying to build"
-    exit 1
+    mkdir $dir
   fi
 }
 
+
 dir_exists $run_dir
 dir_exists $bin_dir
-
-gcc -std=c99 -Wall -Wextra -lm src/*.c -o $bin_dir/rpg
