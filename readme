@@ -1,5 +1,12 @@
 About:
-  This is a silly tui based RPG.
+  This is a silly tui based RPG. The idea is to procedurally
+  generate all monsters and items according to some simple
+  rules. The player can choose an initial specialization,
+  and then grind monsters to acquire better equipment.
+  
+  The long term idea is to incorporate more rpg elements,
+  such as currency, unlocking abilities as you level up,
+  and more detailed character customization and progression.
 
 Setup:
   1. run configure script
