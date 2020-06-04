@@ -1,11 +1,12 @@
-// TODO: 1. need way to track temporary buffs/debuffs.
-//       2. gold? vendors, can accumulate gold?
-//       3. talent points? specializations?
-//       4. Boss fights every 5 levels? Must beat boss to unlock
+// TODO: 1. This needs serious cleanup. Refactor and clean this up.
+//       2. need way to track temporary buffs/debuffs.
+//       3. gold? vendors, can accumulate gold?
+//       4. talent points? specializations?
+//       5. Boss fights every 5 levels? Must beat boss to unlock
 //          next span of levels?
-//       5. Unlockable special abilities. Druids shadeshift to animal
+//       6. Unlockable special abilities. Druids shadeshift to animal
 //          forms, but can't equip plate or weapons to use this ability.
-//       6. Weather.
+//       7. Weather.
 #include <fcntl.h>
 #include <math.h>
 #include <stdint.h>
@@ -2462,6 +2463,9 @@ safer_rand(const size_t min,
         pos_ = 0;
     }
 
+    // This is memory unsafe, and a bug. If the randomly
+    // generate number is less than shift, then size_t
+    // will underflow.
     size_t result = ((rand_buf[pos_] - shift) % range) + min;
 
     pos_++;
