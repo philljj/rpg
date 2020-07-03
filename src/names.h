@@ -44,7 +44,7 @@ static const char * fire_dragon_list[] = {
     "searing drake", "ember serpent", "inferno dragon", "magma wyrm"
 };
 
-#define MAX_PREFIX (116)
+#define MAX_PREFIX (130)
 static const char * prefix_list[MAX_PREFIX] = {
     "ab", "ae", "ag", "am", "an", "ba", "be", "bi", "bo", "bu",
     "ca", "ce", "ci", "co", "cu", "da", "de", "di", "do", "du",
@@ -64,7 +64,11 @@ static const char * prefix_list[MAX_PREFIX] = {
     "ind", "im", "idril", "inglor", "irime",
     "tha", "the", "tho", "thi", "thu",
     "tham", "than", "thath", "thon", "thoth",
-    "thal"
+    "thal", "thagril", "thun",//118
+    "eldram", "ered", "enar",
+    "erabur", "etan", "echalis",
+    "agon", "aegon", "aethon",
+    "farend", "farenthil", "faragon"//130
 };
 
 #define MAX_SUFFIX (105)
