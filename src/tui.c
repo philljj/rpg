@@ -215,7 +215,7 @@ print_attack_prompt(const hero_t * h)
     }
 
     if (h->cooldowns[DRAIN_TOUCH].unlocked) {
-        printf("    c: drain touch\n");
+        printf("    d: drain touch\n");
     }
 
     if (h->cooldowns[SHIELD_BASH].unlocked) {
