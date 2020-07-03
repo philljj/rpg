@@ -166,15 +166,15 @@ roll_hero(const size_t lvl)
     for (;;) {
         clear_screen();
         printf("choose specialization:\n");
-        printf("  t - Thief. Unlocks back stab, +10%% agi.\n");
-        printf("  b - Barbarian. Unlocks crushing blow, +10%% str.\n");
-        printf("  s - Soldier. Unlocks shield bash, +5%% str, +5%% agi.\n");
-        printf("  p - Priest. Unlocks divine heal, +5%% wis, +5%% spr.\n");
-        printf("  d - Druid. Unlocks Shapeshift, +5%% agi, +5%% spr.\n");
-        printf("  w - Wizard. Unlocks mana font, +5%% wis, +5%% spr.\n");
-        printf("  n - Necromancer. Unlocks felstrike, +5%% wis, +5%% agi.\n");
-        printf("  k - Knight. Unlocks shield wall, +10%% sta.\n");
-        printf("  g - Geomancer. Unlocks rock weapon, +5%% str, +5%% wis.\n");
+        printf("  t - Thief. Unlocks back stab.\n");
+        printf("  b - Barbarian. Unlocks crushing blow.\n");
+        printf("  s - Soldier. Unlocks shield bash.\n");
+        printf("  p - Priest. Unlocks divine heal.\n");
+        printf("  d - Druid. Unlocks Shapeshift.\n");
+        printf("  w - Wizard. Unlocks fireball.\n");
+        printf("  n - Necromancer. Unlocks drain touch.\n");
+        printf("  k - Knight. Unlocks shield wall.\n");
+        printf("  g - Geomancer. Unlocks rock weapon.\n");
 
         size_t done = 0;
         char   choice = safer_fgetc();
@@ -225,7 +225,7 @@ roll_hero(const size_t lvl)
             done = 1;
             break;
 
-        case 'w':
+        case 'w': /* wizard */
         case 'W':
             h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                          BLUNT);
@@ -234,12 +234,12 @@ roll_hero(const size_t lvl)
             done = 1;
             break;
 
-        case 'n':
+        case 'n': /* necromancer */
         case 'N':
             h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                          BLUNT);
 
-            h.cooldowns[FEL_STRIKE].unlocked = 1;
+            h.cooldowns[DRAIN_TOUCH].unlocked = 1;
             done = 1;
             break;
 
@@ -1118,6 +1118,11 @@ choose_attack(hero_t * hero,
 
         case 'c':
             status = crushing_blow(hero, enemy);
+            done = 1;
+            break;
+
+        case 'd':
+            status = drain_touch(hero, enemy);
             done = 1;
             break;
 
@@ -2066,6 +2071,67 @@ crushing_blow(hero_t * hero,
 
 
 size_t
+drain_touch(hero_t * hero,
+            hero_t * enemy)
+{
+    if (!hero->cooldowns[DRAIN_TOUCH].unlocked) {
+        // Haven't learned this ability yet.
+        return 0;
+    }
+
+    if (hero->cooldowns[DRAIN_TOUCH].rounds) {
+        printf("drain touch on cooldown for %zu rounds\n",
+               hero->cooldowns[DRAIN_TOUCH].rounds);
+        return 0;
+    }
+
+    const char * what = "drain touch";
+    size_t       total_dmg = 0;
+
+    // Check 2 hand weapon first. If it is equipped, then stop
+    // after it does damage. Otherwise process both hands.
+    slot_t weaps[3] = { TWO_HAND, MAIN_HAND, OFF_HAND };
+
+    for (size_t i = 0; i < 3; ++i) {
+        float  dt_dmg = get_melee_dmg(hero, &hero->items[weaps[i]],
+                                      STD_SMEAR);
+
+        if (dt_dmg == 0) { continue; }
+
+        float  mitigation = get_mitigation(enemy);
+        size_t final_dmg = (size_t) floor(dt_dmg * mitigation);
+        size_t hp_reduced = attack_barrier(final_dmg, enemy);
+
+        printf("drain touch hit %s for %zu hp damage\n",
+               enemy->name, hp_reduced);
+        increment_row();
+
+        total_dmg += hp_reduced;
+
+        hp_reduced /= 2;
+
+        if (hp_reduced == 0) { ++hp_reduced; }
+
+        size_t n = restore_hp(hero, hp_reduced);
+        printf("%s healed %s for %zu hp\n", what, hero->name, n);
+        increment_row();
+
+        if (total_dmg && weaps[i] == TWO_HAND) {
+            // A 2 hand weapon was equipped.
+            break;
+        }
+    }
+
+    // Reduce enemy barrier and health.
+
+    hero->cooldowns[DRAIN_TOUCH].rounds = 2;
+
+    return total_dmg;
+}
+
+
+
+size_t
 shield_bash(hero_t * hero,
             hero_t * enemy)
 {
@@ -2341,7 +2407,6 @@ void
 process_cooldowns(hero_t * h)
 {
     for (size_t i = 0; i < MAX_COOLDOWNS; ++i) {
-
         if(h->cooldowns[i].rounds) {
             h->cooldowns[i].rounds--;
         }

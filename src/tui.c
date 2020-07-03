@@ -214,6 +214,10 @@ print_attack_prompt(const hero_t * h)
         printf("    c: crushing blow\n");
     }
 
+    if (h->cooldowns[DRAIN_TOUCH].unlocked) {
+        printf("    c: drain touch\n");
+    }
+
     if (h->cooldowns[SHIELD_BASH].unlocked) {
         printf("    s: shield bash\n");
     }
@@ -256,11 +260,16 @@ clear_attack_prompt(const hero_t * h)
     printf("\r\033[A");
     printf("\r\033[A");
 
+    // Just iterate through list? Make it smarter?
     if (h->cooldowns[BACK_STAB].unlocked) {
         printf("\r\033[A");
     }
 
     if (h->cooldowns[CRUSHING_BLOW].unlocked) {
+        printf("\r\033[A");
+    }
+
+    if (h->cooldowns[DRAIN_TOUCH].unlocked) {
         printf("\r\033[A");
     }
 

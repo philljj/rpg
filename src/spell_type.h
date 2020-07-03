@@ -18,8 +18,8 @@ typedef enum {
     SHIELD_BASH   = 2,  // Bash for X damage and stun for one round.
     DIVINE_HEAL   = 3,  // Heals for 100% of health over 3 rounds. No mana cost.
     SHAPESHIFT    = 4,  // Unlocks bear and cat forms.
-    FIREBALL      = 5,  // Fire spell for %150 spell damage, plus 50% over 3 rounds.
-    FEL_STRIKE    = 6,  // Weapon attack for X damage and heal for X.
+    FIREBALL      = 5,  // Fire spell for %150 spell dmg, plus 50% over 3 rounds.
+    DRAIN_TOUCH   = 6,  // Weapon attack and heal for 50% of dmg.
     SHIELD_WALL   = 7,  // Reduces all damage by 90% for 3 rounds.
     ROCK_WEAPON   = 8,  // Weapon attacks also deal 50% non-elem dmg for 4 rounds.
     // Novice.

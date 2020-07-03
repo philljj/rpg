@@ -212,6 +212,7 @@ size_t divine_heal(hero_t * hero);
 
 size_t back_stab(hero_t * hero, hero_t * enemy);
 size_t crushing_blow(hero_t * hero, hero_t * enemy);
+size_t drain_touch(hero_t * hero, hero_t * enemy);
 size_t shield_bash(hero_t * hero, hero_t * enemy);
 
 // Debuffs and cooldowns.
