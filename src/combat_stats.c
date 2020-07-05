@@ -111,27 +111,14 @@ get_melee_dmg(const hero_t * h,
         break;
     }
 
-    float  dmg = 0;
-    size_t agi = 0;
-    size_t str = 0;
-
-    str += h->base.str;
-    agi += h->base.agi;
-
-    for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (h->items[i].slot == NO_ITEM) {
-            // Nothing to calculate.
-            continue;
-        }
-
-        str += h->items[i].attr.str;
-        agi += h->items[i].attr.agi;
-    }
+    float dmg = 0;
+    float agi = (float) get_total_stat(h, AGILITY);
+    float str = (float) get_total_stat(h, STRENGTH);
 
     dmg = mult * ((S * str) + (A * agi));
 
     // Add a smear to dmg, to give it some randomness.
-    float smear;
+    float smear = 1;
 
     switch (smear_type) {
     case NO_SMEAR:
@@ -331,19 +318,10 @@ get_dodge(const hero_t * h)
 {
     // Dodge is four digit float, e.g. 48.38%
     // 0 - 9999.
-    float agi = 0;
-    float dodge = 0;
+    float agi;
+    float dodge;
 
-    agi += h->base.agi;
-
-    for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (h->items[i].slot == NO_ITEM) {
-            continue;
-        }
-
-        agi += h->items[i].attr.agi;
-    }
-
+    agi = (float) get_total_stat(h, AGILITY);
     dodge = floor(10000 * agi / (agi + DODGE_HALF_POINT));
 
     return dodge;
@@ -354,20 +332,11 @@ get_dodge(const hero_t * h)
 float
 get_spell_crit(const hero_t * h)
 {
+    float crit = 0;
     float  wis = 0;
-    size_t crit = 0;
 
-    wis += h->base.wis;
-
-    for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (h->items[i].slot == NO_ITEM) {
-            continue;
-        }
-
-        wis += h->items[i].attr.wis;
-    }
-
-    crit = (size_t) floor(100 * wis / (wis + DODGE_HALF_POINT));
+    wis = (float) get_total_stat(h, WISDOM);
+    crit = floor(100 * wis / (wis + DODGE_HALF_POINT));
 
     return crit;
 }

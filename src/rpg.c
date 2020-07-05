@@ -789,31 +789,19 @@ spend_mp(hero_t *     h,
 
 
 void
-spirit_regen(hero_t * h)
+spirit_regen(hero_t * hero)
 {
     // Spirit regen is SPIRIT_REGEN_MULT spirit every REGEN_ROUND rounds.
-    float  spr = h->base.spr;
     size_t regen_amnt = 0;
+    float  total_spirit = 0;
 
-    for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (h->items[i].slot == NO_ITEM) {
-            continue;
-        }
+    total_spirit = (float) get_total_stat(hero, SPIRIT);
+    regen_amnt = (size_t) floor(SPIRIT_REGEN_MULT * total_spirit);
 
-        spr += h->items[i].attr.spr;
-    }
+    size_t hp_gain = restore_hp(hero, regen_amnt);
+    size_t mp_gain = restore_mp(hero, regen_amnt);
 
-    if (!spr) {
-        // Nothing to do.
-        return;
-    }
-
-    regen_amnt = (size_t) floor(SPIRIT_REGEN_MULT * spr);
-
-    size_t hp_gain = restore_hp(h, regen_amnt);
-    size_t mp_gain = restore_mp(h, regen_amnt);
-
-    printf("%s regenerated %zu hp, %zu mp\n", h->name, hp_gain,
+    printf("%s regenerated %zu hp, %zu mp\n", hero->name, hp_gain,
            mp_gain);
 
     return;
@@ -1867,6 +1855,7 @@ sprintf_item_name(char *         name,
 stats_t
 get_total_stats(const hero_t * h)
 {
+    // Should pass stats_t by pointer?
     stats_t stats;
 
     stats.sta = h->base.sta;

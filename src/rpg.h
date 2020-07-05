@@ -168,9 +168,7 @@ hero_t roll_animal(const char * name, const size_t lvl);
 hero_t roll_dragon(const char * name, const size_t lvl);
 void   gen_base_stats(hero_t * h);
 
-
 stats_t get_total_stats(const hero_t * h);
-
 
 void   level_up(hero_t * h);
 void   set_hp_mp(hero_t * h);
