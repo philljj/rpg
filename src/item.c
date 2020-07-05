@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "safer_rand.h"
 #include "item_names.h"
 #include "item_stats.h"
 #include "spell_type.h"

@@ -1,10 +1,6 @@
 #if !defined(RPG_H)
 #define RPG_H
 
-// RNG functions.
-void   init_rand(void);
-size_t safer_rand(const size_t min, const size_t max);
-
 // Names and items.
 #define MAX_ITEMS            (11)  // Max item slots on hero.
 #define MAX_INVENTORY        (32)  // Max bag space slots on hero.
@@ -26,8 +22,6 @@ size_t safer_rand(const size_t min, const size_t max);
 
 // Misc
 #define USLEEP_INTERVAL      (500000)
-#define RAND_BUF_LEN         (6)
-#define MAX_RAND_NUM         (65535)
 
 // Fundamental monster types, and their various sub types.
 typedef enum {

@@ -7,7 +7,6 @@
 //       6. Unlockable special abilities. Druids shadeshift to animal
 //          forms, but can't equip plate or weapons to use this ability.
 //       7. Weather.
-#include <fcntl.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -16,6 +15,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "safer_rand.h"
 #include "names.h"
 #include "item_stats.h"
 #include "spell_type.h"
@@ -25,11 +25,6 @@
 #include "combat_stats.h"
 #include "ability_callbacks.h"
 
-// Random number buffers
-static uint16_t rand_buf[RAND_BUF_LEN];
-static int      urand_fd = 0;
-static size_t   pos_ = 0;
-
 
 
 int
@@ -37,11 +32,6 @@ main(int    argc   __attribute__((unused)),
      char * argv[] __attribute__((unused)))
 {
     {
-        pid_t  pid = getpid();
-        time_t t = time(0);
-
-        srand(pid * t);
-
         init_rand();
         clear_screen();
     }
@@ -2488,71 +2478,4 @@ clear_stdin(void)
     }
 
     return;
-}
-
-
-
-void
-init_rand(void)
-{
-    urand_fd = open("/dev/urandom", O_RDONLY);
-
-    if (urand_fd <= 0) {
-        fprintf(stderr, "error: failed to open %s\n", "/dev/urandom");
-        exit(1);
-    }
-
-    ssize_t n = read(urand_fd, rand_buf, sizeof(rand_buf));
-
-    if (n != sizeof(rand_buf)) {
-        fprintf(stderr, "error: read returned %zu bytes, expected %zu\n",
-                n, sizeof(rand_buf));
-        exit(1);
-    }
-
-    pos_ = 0;
-
-    return;
-}
-
-
-
-size_t
-safer_rand(const size_t min,
-           const size_t max)
-{
-    if (!urand_fd) {
-        fprintf(stderr, "error: do not call safer_rand before init!\n");
-        exit(1);
-    }
-
-    if (max <= min) {
-        fprintf(stderr, "error: invalid arguments: min=%zu, max=%zu\n",
-                         min, max);
-        exit(1);
-    }
-
-    size_t range = (max + 1) - min;
-    size_t shift = MAX_RAND_NUM % range;
-
-    if (pos_ > RAND_BUF_LEN - 1) {
-        ssize_t n = read(urand_fd, rand_buf, sizeof(rand_buf));
-
-        if (n != sizeof(rand_buf)) {
-            fprintf(stderr, "error: read returned %zu bytes, expected %zu\n",
-                    n, sizeof(rand_buf));
-            exit(1);
-        }
-
-        pos_ = 0;
-    }
-
-    // This is memory unsafe, and a bug. If the randomly
-    // generate number is less than shift, then size_t
-    // will underflow.
-    size_t result = ((rand_buf[pos_] - shift) % range) + min;
-
-    pos_++;
-
-    return result;
 }
