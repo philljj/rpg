@@ -55,6 +55,14 @@ typedef enum {
     RANDOM_W  = 99
 } weapon_t;
 
+typedef enum {
+    STAMINA,
+    STRENGTH,
+    AGILITY,
+    WISDOM,
+    SPIRIT
+} stat_type_t;
+
 typedef struct {
     size_t sta;  // HP
     size_t str;  // weapon damage (favors blunt and two hand)

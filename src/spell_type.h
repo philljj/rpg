@@ -10,18 +10,19 @@ typedef enum {
     RESTORATION
 } element_t;
 
-#define MAX_COOLDOWNS (9)
+#define MAX_COOLDOWNS (10)
 typedef enum {
     // Beginner cooldown abilities.
     BACK_STAB     = 0,  // Triple damage main hand dagger strike. No dodge.
     CRUSHING_BLOW = 1,  // Double damage two hand strike.
     SHIELD_BASH   = 2,  // Bash for X damage and stun for one round.
-    DIVINE_HEAL   = 3,  // Heals for 100% of health over 3 rounds. No mana cost.
+    HOLY_SMITE    = 3,  // Holy dmg equal to caster's spirit.
     SHAPESHIFT    = 4,  // Unlocks bear and cat forms.
     FIREBALL      = 5,  // Fire spell for %150 spell dmg, plus 50% over 3 rounds.
     DRAIN_TOUCH   = 6,  // Weapon attack and heal for 50% of dmg.
     SHIELD_WALL   = 7,  // Reduces all damage by 90% for 3 rounds.
     ROCK_WEAPON   = 8,  // Weapon attacks also deal 50% non-elem dmg for 4 rounds.
+    REGEN         = 9,  // Heals for 100% of health over 3 rounds. No mana cost.
     // Novice.
     METEOR        = 25, // Heavy non-elemental damage over 3 rounds.
 } cooldown_t;

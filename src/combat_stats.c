@@ -324,8 +324,6 @@ get_armor(const hero_t * h)
     return armor;
 }
 
-
-
 
 
 float
@@ -374,4 +372,55 @@ get_spell_crit(const hero_t * h)
     return crit;
 }
 
+
 
+size_t
+get_total_stat(const hero_t * h,
+               stat_type_t    stat_type)
+{
+    size_t total = 0;
+
+    switch (stat_type) {
+    case STAMINA:
+        total += h->base.sta;
+        break;
+    case STRENGTH:
+        total += h->base.str;
+        break;
+    case AGILITY:
+        total += h->base.agi;
+        break;
+    case WISDOM:
+        total += h->base.wis;
+        break;
+    case SPIRIT:
+        total += h->base.spr;
+        break;
+    }
+
+    for (size_t i = 0; i < MAX_ITEMS; ++i) {
+        if (h->items[i].slot == NO_ITEM) {
+            continue;
+        }
+
+        switch (stat_type) {
+        case STAMINA:
+            total += h->items[i].attr.sta;
+            break;
+        case STRENGTH:
+            total += h->items[i].attr.str;
+            break;
+        case AGILITY:
+            total += h->items[i].attr.agi;
+            break;
+        case WISDOM:
+            total += h->items[i].attr.wis;
+            break;
+        case SPIRIT:
+            total += h->items[i].attr.spr;
+            break;
+        }
+    }
+
+    return total;
+}

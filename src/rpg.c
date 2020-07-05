@@ -212,7 +212,7 @@ roll_hero(const size_t lvl)
             h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                          BLUNT);
 
-            h.cooldowns[DIVINE_HEAL].unlocked = 1;
+            h.cooldowns[HOLY_SMITE].unlocked = 1;
             done = 1;
             break;
 
@@ -789,7 +789,7 @@ spend_mp(hero_t *     h,
 
 
 void
-regen(hero_t * h)
+spirit_regen(hero_t * h)
 {
     // Spirit regen is SPIRIT_REGEN_MULT spirit every REGEN_ROUND rounds.
     float  spr = h->base.spr;
@@ -887,8 +887,8 @@ battle(hero_t * hero,
         }
 
         if (regen_ctr == REGEN_ROUND) {
-            regen(hero);
-            regen(enemy);
+            spirit_regen(hero);
+            spirit_regen(enemy);
             increment_row();
 
             increment_row();
@@ -920,7 +920,6 @@ battle(hero_t * hero,
 
     reset_cursor();
     del_eof();
-
 
     usleep(USLEEP_INTERVAL);
 
@@ -1038,6 +1037,10 @@ choose_spell(hero_t * hero,
             done = 1;
             break;
 
+        case 'h':
+            status = holy_smite(hero, enemy);
+            done = 1;
+            break;
 
         default:
             printf("error: invalid input %c\n", act_var);
@@ -1067,11 +1070,6 @@ choose_heal(hero_t * hero)
         clear_heal_prompt(hero);
 
         switch (act_var) {
-        case 'd':
-            status = divine_heal(hero);
-            done = 1;
-            break;
-
         case 'h':
             status = hero->heal(hero, 1.0, 1.0);
             done = 1;
@@ -2135,6 +2133,9 @@ size_t
 shield_bash(hero_t * hero,
             hero_t * enemy)
 {
+    // Bash the target for 0.6 main hand dmg,
+    // and stuns target for one round.
+
     if (!hero->cooldowns[SHIELD_BASH].unlocked) {
         // Haven't learned this ability yet.
         return 0;
@@ -2151,11 +2152,6 @@ shield_bash(hero_t * hero,
         printf("no shield equipped\n");
         return 0;
     }
-
-    // Need to check cooldowns. Have a list of cooldowns?
-    // Need to require shield?
-    // Bash the target for 0.6 main hand dmg,
-    // and stuns target for one round.
 
     float  mult = 0.5;
 
@@ -2243,19 +2239,53 @@ fireball(hero_t * hero,
 
 
 size_t
-divine_heal(hero_t * hero)
+holy_smite(hero_t * hero,
+           hero_t * enemy)
 {
-    // Heal caster for 50%, and then 100%
-    // additional over 2 rounds.
+    // TODO: change to smite or holy smite. Dmg proportional
+    //       to total spirit.
+    // 
+    // New function...
 
-    if (!hero->cooldowns[DIVINE_HEAL].unlocked) {
+    if (!hero->cooldowns[HOLY_SMITE].unlocked) {
         // Haven't learned this ability yet.
         return 0;
     }
 
-    if (hero->cooldowns[DIVINE_HEAL].rounds) {
-        printf("divine heal on cooldown for %zu rounds\n",
-               hero->cooldowns[DIVINE_HEAL].rounds);
+    if (hero->cooldowns[HOLY_SMITE].rounds) {
+        printf("holy smite on cooldown for %zu rounds\n",
+               hero->cooldowns[HOLY_SMITE].rounds);
+        return 0;
+    }
+
+    size_t total_spirit = get_total_stat(hero, SPIRIT);
+    size_t hp_reduced = attack_barrier(total_spirit, enemy);
+
+    printf("smite hit %s for %zu hp damage\n",
+           enemy->name, hp_reduced);
+    increment_row();
+
+    hero->cooldowns[HOLY_SMITE].rounds = 2;
+
+    return hp_reduced;
+}
+
+
+
+size_t
+time_mage_regen(hero_t * hero)
+{
+    // Heal caster for 50%, and then 100%
+    // additional over 2 rounds.
+
+    if (!hero->cooldowns[REGEN].unlocked) {
+        // Haven't learned this ability yet.
+        return 0;
+    }
+
+    if (hero->cooldowns[REGEN].rounds) {
+        printf("regen on cooldown for %zu rounds\n",
+               hero->cooldowns[REGEN].rounds);
         return 0;
     }
 
@@ -2272,10 +2302,10 @@ divine_heal(hero_t * hero)
     float  hot_mult = 2;
     float  hot_amnt = (hot_mult * ((float) heal_amnt)) / rounds;
 
-    apply_debuff(hero, "divine restoration", HOT, RESTORATION,
+    apply_debuff(hero, "regen", HOT, RESTORATION,
                  hot_amnt, rounds, wait);
 
-    hero->cooldowns[DIVINE_HEAL].rounds = 4;
+    hero->cooldowns[REGEN].rounds = 4;
 
     return heal_amnt;
 }

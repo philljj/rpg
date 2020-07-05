@@ -203,16 +203,16 @@ const char * elem_to_str(const element_t elem);
 
 // Combat functions.
 void   decision_loop(hero_t * hero, hero_t * enemy);
+void   spirit_regen(hero_t * h);
 size_t choose_attack(hero_t * hero, hero_t * enemy);
 size_t choose_spell(hero_t * hero, hero_t * enemy);
 size_t choose_heal(hero_t * hero);
 void   battle(hero_t * hero, hero_t * enemy);
 
-size_t divine_heal(hero_t * hero);
-
 size_t back_stab(hero_t * hero, hero_t * enemy);
 size_t crushing_blow(hero_t * hero, hero_t * enemy);
 size_t drain_touch(hero_t * hero, hero_t * enemy);
+size_t holy_smite(hero_t * hero, hero_t * enemy);
 size_t shield_bash(hero_t * hero, hero_t * enemy);
 
 // Debuffs and cooldowns.
@@ -231,7 +231,7 @@ size_t fire_strike(hero_t * hero, hero_t * enemy);
 size_t shadow_bolt(hero_t * hero, hero_t * enemy);
 size_t fireball(hero_t * hero, hero_t * enemy);
 size_t attack_barrier(size_t final_dmg, hero_t * enemy);
-void   regen(hero_t * h);
+size_t time_mage_regen(hero_t * h);
 size_t restore_hp(hero_t * h, const size_t amnt);
 size_t restore_mp(hero_t * h, const size_t amnt);
 size_t spend_hp(hero_t * h, const size_t amnt);

@@ -161,6 +161,10 @@ print_spell_prompt(const hero_t * h)
         printf("    b: fireball\n");
     }
 
+    if (h->cooldowns[HOLY_SMITE].unlocked) {
+        printf("    h: holy smite\n");
+    }
+
     return;
 }
 
@@ -173,8 +177,8 @@ print_heal_prompt(const hero_t * h)
     printf("  choose heal spell:\n");
     printf("    h: Heal I\n");
 
-    if (h->cooldowns[DIVINE_HEAL].unlocked) {
-        printf("    d: divine heal\n");
+    if (h->cooldowns[REGEN].unlocked) {
+        printf("    r: regen\n");
     }
 
     return;
@@ -188,7 +192,7 @@ clear_heal_prompt(const hero_t * h)
     printf("\r\033[A");
     printf("\r\033[A");
 
-    if (h->cooldowns[DIVINE_HEAL].unlocked) {
+    if (h->cooldowns[REGEN].unlocked) {
         printf("\r\033[A");
     }
 
@@ -241,6 +245,10 @@ clear_spell_prompt(const hero_t * h)
     }
 
     if (h->cooldowns[FIREBALL].unlocked) {
+        printf("\r\033[A");
+    }
+
+    if (h->cooldowns[HOLY_SMITE].unlocked) {
         printf("\r\033[A");
     }
 

@@ -33,5 +33,6 @@ float  get_mitigation(const hero_t * h);
 size_t get_armor(const hero_t * h);
 float  get_resist(const hero_t * h);
 float  get_dodge(const hero_t * h);
+size_t get_total_stat(const hero_t * h, stat_type_t stat_type);
 
 #endif /* if !defined(COMBAT_H) */
