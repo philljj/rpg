@@ -5,38 +5,6 @@
 void   init_rand(void);
 size_t safer_rand(const size_t min, const size_t max);
 
-
-
-// Geomancer and druid will use these flags?...
-// Interact with them differently?
-
-typedef uint32_t weather_flags_t;
-
-#define WF_NONE = 0x00000000u; // clear, neutral temp.
-#define WF_WIND = 0x00000001u;
-#define WF_MURK = 0x00000002u; // foggy
-#define WF_RAIN = 0x00000004u;
-#define WF_SNOW = 0x00000008u;
-#define WF_WARM = 0x00000010u; // On warm, off cold.
-#define WF_EXTR = 0x00000020u; // On extreme weather.
-
-typedef uint32_t geography_flags_t;
-
-#define GEO_NONE     = 0x00000000u; // flat plains, neutral everything.
-#define GEO_OCEAN    = 0x00000001u;
-#define GEO_RIVER    = 0x00000002u;
-#define GEO_LAKE     = 0x00000004u;
-#define GEO_FOREST   = 0x00000008u; // On desert, off normal.
-#define GEO_DESERT   = 0x00000010u; // On desert, off normal.
-#define GEO_ALTITUDE = 0x00000020u; // On high altitude, off low.
-#define GEO_ALPINE   = 0x00000040u; // On mountainous.
-
-typedef uint32_t seasons_flags_t;
-
-#define SEASONS_NONE   = 0x00000000u;
-#define SEASONS_SPRING = 0x00000001u; // On spring, off fall.
-#define SEASONS_SUMMER = 0x00000002u; // On summer, off winter.
-
 // Names and items.
 #define MAX_ITEMS            (11)  // Max item slots on hero.
 #define MAX_INVENTORY        (32)  // Max bag space slots on hero.
