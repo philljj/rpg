@@ -10,6 +10,8 @@
 // How much to buffer out of /dev/urandom
 #define RAND_BUF_LEN (128)
 
+static uint16_t get_rand_uint16(void);
+
 // Random number buffers
 static uint16_t rand_buf[RAND_BUF_LEN];
 static int      urand_fd = 0;
@@ -60,11 +62,28 @@ safer_rand(const size_t min,
         exit(1);
     }
 
-    size_t range = (max + 1) - min;
-    size_t shift = MAX_RAND_NUM % range;
+    size_t   range = (max + 1) - min;
+    size_t   shift = MAX_RAND_NUM % range;
+    uint16_t value;
 
 again:
-    if (pos > RAND_BUF_LEN - 1) {
+    value = get_rand_uint16();
+
+    if (value < shift) {
+        goto again;
+    }
+
+    size_t result = ((value - shift) % range) + min;
+
+    return result;
+}
+
+
+
+static uint16_t
+get_rand_uint16(void)
+{
+    if (pos >= RAND_BUF_LEN) {
         ssize_t n = read(urand_fd, rand_buf, sizeof(rand_buf));
 
         if (n != sizeof(rand_buf)) {
@@ -80,11 +99,5 @@ again:
 
     ++pos;
 
-    if (value < shift) {
-        goto again;
-    }
-
-    size_t result = ((value - shift) % range) + min;
-
-    return result;
+    return value;
 }
