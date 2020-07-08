@@ -159,7 +159,7 @@ roll_hero(const size_t lvl)
         printf("  t - Thief. Unlocks back stab.\n");
         printf("  b - Barbarian. Unlocks crushing blow.\n");
         printf("  s - Soldier. Unlocks shield bash.\n");
-        printf("  p - Priest. Unlocks divine heal.\n");
+        printf("  p - Priest. Unlocks holy smite.\n");
         printf("  d - Druid. Unlocks Shapeshift.\n");
         printf("  w - Wizard. Unlocks fireball.\n");
         printf("  n - Necromancer. Unlocks drain touch.\n");
@@ -2062,8 +2062,7 @@ drain_touch(hero_t * hero,
         return 0;
     }
 
-    const char * what = "drain touch";
-    size_t       total_dmg = 0;
+    size_t total_dmg = 0;
 
     // Check 2 hand weapon first. If it is equipped, then stop
     // after it does damage. Otherwise process both hands.
@@ -2090,7 +2089,7 @@ drain_touch(hero_t * hero,
         if (hp_reduced == 0) { ++hp_reduced; }
 
         size_t n = restore_hp(hero, hp_reduced);
-        printf("%s healed %s for %zu hp\n", what, hero->name, n);
+        printf("drain touch healed %s for %zu hp\n", hero->name, n);
         increment_row();
 
         if (total_dmg && weaps[i] == TWO_HAND) {
