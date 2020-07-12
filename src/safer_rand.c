@@ -5,8 +5,6 @@
 
 #include "safer_rand.h"
 
-// max uint16_t
-#define MAX_RAND_NUM (65535)
 // How much to buffer out of /dev/urandom
 #define RAND_BUF_LEN (128)
 
@@ -59,6 +57,12 @@ safer_rand(const size_t min,
     if (max <= min) {
         fprintf(stderr, "error: invalid arguments: min=%zu, max=%zu\n",
                 min, max);
+        exit(1);
+    }
+
+    if (max >= MAX_RAND_NUM) {
+        fprintf(stderr, "error: max >= MAX_RAND_NUM: max=%zu, max allowed=%d\n",
+                max, MAX_RAND_NUM - 1);
         exit(1);
     }
 

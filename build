@@ -2,6 +2,7 @@
 
 run_dir="run"
 bin_dir="run/bin"
+test_dir="run/test"
 
 function dir_exists {
   if [ $# -eq 0 ]; then
@@ -19,5 +20,7 @@ function dir_exists {
 
 dir_exists $run_dir
 dir_exists $bin_dir
+dir_exists $test_dir
 
 gcc -std=c99 -Wall -Wextra -lm src/*.c -o $bin_dir/rpg
+gcc -std=c99 -Wall -Wextra -lm test/test_rand.c src/safer_rand.c -o $test_dir/test_rand

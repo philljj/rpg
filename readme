@@ -13,3 +13,13 @@ Setup:
   2. run build script
   3. drink espresso
   4. that's it
+
+Notes:
+  The special file /dev/urandom is used for random number generation.
+  Use test/test_rand to verify quality of RNG. E.g:
+    $ ./test/test_rand  96 100 100 | sort -n | uniq -c
+    21 96
+    17 97
+    22 98
+    17 99
+    23 100
