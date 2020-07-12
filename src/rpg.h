@@ -108,7 +108,6 @@ struct hero_t {
     spell_t  resist;                 // Resists spell damage received.
     // Cooldowns, buffs, debuffs.
     cd_t     cooldowns[MAX_COOLDOWNS];
-    non_cd_t non_cooldowns[MAX_NON_COOLDOWNS];
     debuff_t debuffs[MAX_DEBUFFS];
     // Equipment and inventory.
     item_t   items[MAX_ITEMS];       // Equipped items.

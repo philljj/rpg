@@ -161,7 +161,7 @@ roll_hero(const size_t lvl)
         printf("  w - Wizard. Unlocks fireball.\n");
         printf("  n - Necromancer. Unlocks drain touch.\n");
         printf("  k - Knight. Unlocks shield wall.\n");
-        printf("  g - Geomancer. Unlocks rock weapon.\n");
+        printf("  g - Geomancer. Unlocks elemental attack.\n");
 
         size_t done = 0;
         char   choice = safer_fgetc();
@@ -244,7 +244,7 @@ roll_hero(const size_t lvl)
             h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                          BLUNT);
 
-            h.cooldowns[ROCK_WEAPON].unlocked = 1;
+            h.cooldowns[ELEMENTAL].unlocked = 1;
             done = 1;
             break;
         }

@@ -21,25 +21,11 @@ typedef enum {
     FIREBALL      = 5,  // Fire spell for %150 spell dmg, plus 50% over 3 rounds.
     DRAIN_TOUCH   = 6,  // Weapon attack and heal for 50% of dmg.
     SHIELD_WALL   = 7,  // Reduces all damage by 90% for 3 rounds.
-    ROCK_WEAPON   = 8,  // Weapon attacks also deal 50% non-elem dmg for 4 rounds.
+    ELEMENTAL     = 8,  // Geomancer elemental attack.
     REGEN         = 9,  // Heals for 100% of health over 3 rounds. No mana cost.
     // Novice.
     METEOR        = 25, // Heavy non-elemental damage over 3 rounds.
 } cooldown_t;
-
-#define MAX_NON_COOLDOWNS (9)
-typedef enum {
-    // Beginner non-cooldown abilities.
-    EVASION      = 0, // Increases dodge chance by 40%, mana cost.
-    ENRAGE       = 1, // Increases damage given by 30%, taken by 20%.
-    BREAK_ARMOR  = 2, // Damage for X and reduces armor by 20% for 4 rounds.
-    BARRIER      = 3, // Barrier that absorbs all damage, mana cost, non stacking.
-    STARFIRE     = 4, // Non-elem spell damage. Mana cost.
-    BLIZZARD     = 5, // Heavy frost damage over 3 rounds.
-    CURSE        = 6, // Spell damage over time, mana cost, non stacking.
-    POWER_STRIKE = 7, // Powerful strike for 1.5 weapon attack damage.
-    EARTH_SPRING = 8, // Restores X health for 10 rounds. Stacks 3 times.
-} non_cooldown_t;
 
 // Status type of debuff.
 typedef enum {
@@ -76,11 +62,6 @@ typedef struct {
     size_t unlocked;
     size_t rounds;
 } cd_t;
-
-typedef struct {
-    // Manages if special ability is unlocked.
-    size_t unlocked;
-} non_cd_t;
 
 #define MAX_DEBUFFS (32)
 
