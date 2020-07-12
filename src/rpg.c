@@ -31,10 +31,8 @@ int
 main(int    argc   __attribute__((unused)),
      char * argv[] __attribute__((unused)))
 {
-    {
-        init_rand();
-        clear_screen();
-    }
+    init_rand();
+    clear_screen();
 
     size_t h_ini_lvl = 2;
     size_t e_ini_lvl = 1;
@@ -43,7 +41,6 @@ main(int    argc   __attribute__((unused)),
 
     print_portrait(&hero, PORTRAIT_ROW, PORTRAIT_COL);
 
-    //size_t xp_req = 10;
     size_t xp_req = 1;
 
     for (;;) {

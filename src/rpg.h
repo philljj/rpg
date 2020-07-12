@@ -197,5 +197,4 @@ size_t restore_mp(hero_t * h, const size_t amnt);
 size_t spend_hp(hero_t * h, const size_t amnt);
 size_t spend_mp(hero_t * h, const size_t amnt);
 
-
 #endif /* if !defined(RPG_H) */
