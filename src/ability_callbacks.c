@@ -182,7 +182,8 @@ spell_attack_cb(void *          h,
     float        resist;
     size_t       is_crit = 0;
     size_t       final_dmg;
-    const char * what = elem_to_str(element);
+    char         elem_str[64];
+    const char * what = elem_to_str(elem_str, element);
 
     base_dmg = dmg_mult * get_spell_dmg(hero, element, STD_SMEAR);
 

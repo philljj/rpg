@@ -162,7 +162,7 @@ roll_hero(const size_t lvl)
         printf("  b - Barbarian. Unlocks crushing blow.\n");
         printf("  s - Soldier. Unlocks shield bash.\n");
         printf("  p - Priest. Unlocks holy smite.\n");
-        printf("  d - Druid. Unlocks Shapeshift.\n");
+        printf("  d - Druid. Unlocks insect swarm.\n");
         printf("  w - Wizard. Unlocks fireball.\n");
         printf("  n - Necromancer. Unlocks drain touch.\n");
         printf("  k - Knight. Unlocks shield wall.\n");
@@ -1391,26 +1391,54 @@ mob_to_str(const mob_t m)
 
 
 const char *
-elem_to_str(const element_t elem)
+elem_to_str(char *          str,
+            const element_t elem)
 {
-    switch (elem) {
-    case FIRE:
-        return "fire";
-    case FROST:
-        return "frost";
-    case SHADOW:
-        return "shadow";
-    case NON_ELEM:
-        return "non-elemental";
-    case HOLY:
-        return "holy";
-    case NATURE:
-        return "nature";
-    case RESTORATION:
-        return "restoration";
+    if (!str) {
+        /* simple, no color formatting */
+        switch (elem) {
+        case FIRE:
+            return "fire";
+        case FROST:
+            return "frost";
+        case SHADOW:
+            return "shadow";
+        case NON_ELEM:
+            return "non-elemental";
+        case HOLY:
+            return "holy";
+        case NATURE:
+            return "nature";
+        case RESTORATION:
+            return "restoration";
+        }
     }
 
-    return "error: what is this?";
+    switch (elem) {
+    case FIRE:
+        sprintf(str, "%s%s%s", BRED, "fire", reset);
+        break;
+    case FROST:
+        sprintf(str, "%s%s%s", BBLU, "frost", reset);
+        break;
+    case SHADOW:
+        sprintf(str, "%s%s%s", BMAG, "shadow", reset);
+        break;
+    case NON_ELEM:
+        sprintf(str, "%s%s%s", BMAG, "non-elemental", reset);
+        break;
+    case HOLY:
+        sprintf(str, "%s%s%s", BYEL, "holy", reset);
+        break;
+    case NATURE:
+        sprintf(str, "%s%s%s", BGRN, "nature", reset);
+        break;
+    case RESTORATION:
+        sprintf(str, "%s%s%s", BGRN, "restoration", reset);
+        break;
+    }
+
+    return str;
 }
 
 
@@ -2262,11 +2290,16 @@ size_t
 insect_swarm(hero_t * hero,
              hero_t * enemy)
 {
-    // Swarm the enemy target with insects, dealing damage over time
-    // and reducing their chance to hit with attacks.
+   /*
+    * Swarm the enemy target with insects, dealing damage over time.
+    *   - Damage proportional to strength + spirit 
+    *   - Damage lasts for 5 rounds.
+    * 
+    * This debuff is stackable.
+    */
 
     if (!hero->cooldowns[INSECT_SWARM].unlocked) {
-        // Haven't learned this ability yet.
+        /* Haven't learned this ability yet. */
         return 0;
     }
 
@@ -2404,6 +2437,7 @@ process_debuffs_i(hero_t *   enemy,
     element_t    element = debuff->element;
     float        amnt = debuff->amnt;
     size_t       dmg = 0;
+    char         elem_str[64];
 
     switch (db_status) {
     case DOT:
@@ -2411,8 +2445,8 @@ process_debuffs_i(hero_t *   enemy,
         // here, because mitigation was already taken into
         // account when the debuff was calculated and applied.
         dmg = attack_barrier(amnt, enemy);
-        printf("%s did %zu %s damage to %s\n", name, dmg, elem_to_str(element),
-               enemy->name);
+        printf("%s did %zu %s damage to %s\n", name, dmg,
+               elem_to_str(elem_str, element), enemy->name);
         break;
 
     case STUN:

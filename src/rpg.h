@@ -168,7 +168,7 @@ void         print_fld(const char * what, const size_t amnt);
 const char * slot_to_str(slot_t s);
 const char * armor_to_str(armor_t a);
 const char * mob_to_str(const mob_t m);
-const char * elem_to_str(const element_t elem);
+const char * elem_to_str(char * str, const element_t elem);
 
 // Combat functions.
 void   decision_loop(hero_t * hero, hero_t * enemy);
@@ -183,6 +183,7 @@ size_t crushing_blow(hero_t * hero, hero_t * enemy);
 size_t drain_touch(hero_t * hero, hero_t * enemy);
 size_t holy_smite(hero_t * hero, hero_t * enemy);
 size_t shield_bash(hero_t * hero, hero_t * enemy);
+/* stackable druid nature debuff */
 size_t insect_swarm(hero_t * hero, hero_t * enemy);
 
 // Debuffs and cooldowns.
