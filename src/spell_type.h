@@ -10,6 +10,8 @@ typedef enum {
     RESTORATION
 } element_t;
 
+// The cooldown_t enum will index into the cooldowns array.
+// Anything over MAX_COOLDOWNS is not implemented.
 #define MAX_COOLDOWNS (10)
 typedef enum {
     // Beginner cooldown abilities.
@@ -17,7 +19,7 @@ typedef enum {
     CRUSHING_BLOW = 1,  // Double damage two hand strike.
     SHIELD_BASH   = 2,  // Bash for X damage and stun for one round.
     HOLY_SMITE    = 3,  // Holy dmg equal to caster's spirit.
-    SHAPESHIFT    = 4,  // Unlocks bear and cat forms.
+    INSECT_SWARM  = 4,  // Nature DoT, reduces enemy chance to hit.
     FIREBALL      = 5,  // Fire spell for %150 spell dmg, plus 50% over 3 rounds.
     DRAIN_TOUCH   = 6,  // Weapon attack and heal for 50% of dmg.
     SHIELD_WALL   = 7,  // Reduces all damage by 90% for 3 rounds.
@@ -28,6 +30,8 @@ typedef enum {
 } cooldown_t;
 
 // Status type of debuff.
+// Anything over MAX_DEBUFFS is not implemented.
+#define MAX_DEBUFFS (32)
 typedef enum {
     // Debuffs.
     DOT           = 0,  // Damage Over Time. Burn, curse, bleed, etc.
@@ -63,6 +67,5 @@ typedef struct {
     size_t rounds;
 } cd_t;
 
-#define MAX_DEBUFFS (32)
 
 #endif /* if !defined (SPELL_TYPE_H) */

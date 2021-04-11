@@ -7,6 +7,7 @@
 //       6. Unlockable special abilities. Druids shadeshift to animal
 //          forms, but can't equip plate or weapons to use this ability.
 //       7. Weather.
+#include <assert.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -31,6 +32,9 @@ int
 main(int    argc   __attribute__((unused)),
      char * argv[] __attribute__((unused)))
 {
+    assert(REGEN < MAX_COOLDOWNS);
+    assert(HOT < MAX_DEBUFFS);
+
     init_rand();
     clear_screen();
 
@@ -208,7 +212,7 @@ roll_hero(const size_t lvl)
             h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                          BLUNT);
 
-            h.cooldowns[SHAPESHIFT].unlocked = 1;
+            h.cooldowns[INSECT_SWARM].unlocked = 1;
             done = 1;
             break;
 
