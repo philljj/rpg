@@ -76,6 +76,8 @@ typedef struct {
     size_t frost;
     size_t shadow;
     size_t non_elemental;
+    size_t holy;
+    size_t nature;
     size_t restoration;
 } spell_t;
 

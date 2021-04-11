@@ -3,10 +3,12 @@
 
 // Spell schools.
 typedef enum {
-    FIRE,
-    FROST,
-    SHADOW,
-    NON_ELEM,
+    FIRE,       /* fireball, flame strike, etc */
+    FROST,      /* ice attack */
+    SHADOW,     /* necrotic */
+    NON_ELEM,   /* spans FIRE FROST SHADOW, includes meteor */
+    HOLY,       /* cannot be resisted */
+    NATURE,     /* insect swarm, thorns, entangling roots */
     RESTORATION
 } element_t;
 

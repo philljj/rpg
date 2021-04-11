@@ -237,6 +237,14 @@ get_elem_pow(const spell_t * power,
         spell_power += 0.5 * power->frost;
         spell_power += 0.5 * power->shadow;
         break;
+    case HOLY:
+        // There is no holy spell resist. Holy pierces all defenses.
+        // Bonus holy power items will be rare.
+        spell_power += power->holy;
+        break;
+    case NATURE:
+        spell_power += power->nature;
+        break;
     case RESTORATION:
         spell_power += power->restoration;
         break;
@@ -251,32 +259,39 @@ float
 get_elem_res(const spell_t * resist,
              const element_t element)
 {
-    float  spell_power = 0;
+    float  spell_resist = 0;
 
     switch (element) {
     case FIRE:
-        spell_power += resist->fire;
-        spell_power += 0.5 * resist->non_elemental;
+        spell_resist += resist->fire;
+        spell_resist += 0.5 * resist->non_elemental;
         break;
     case FROST:
-        spell_power += resist->frost;
-        spell_power += 0.5 * resist->non_elemental;
+        spell_resist += resist->frost;
+        spell_resist += 0.5 * resist->non_elemental;
         break;
     case SHADOW:
-        spell_power += resist->shadow;
-        spell_power += 0.5 * resist->non_elemental;
+        spell_resist += resist->shadow;
+        spell_resist += 0.5 * resist->non_elemental;
         break;
     case NON_ELEM:
-        spell_power += resist->non_elemental;
-        spell_power += 0.5 * resist->fire;
-        spell_power += 0.5 * resist->frost;
-        spell_power += 0.5 * resist->shadow;
+        spell_resist += resist->non_elemental;
+        spell_resist += 0.5 * resist->fire;
+        spell_resist += 0.5 * resist->frost;
+        spell_resist += 0.5 * resist->shadow;
+        break;
+    case HOLY:
+        // There is no holy spell resist. Holy pierces all defenses.
+        spell_resist = 0;
+        break;
+    case NATURE:
+        spell_resist += resist->nature;
         break;
     case RESTORATION:
         break;
     }
 
-    return spell_power;
+    return spell_resist;
 }
 
 

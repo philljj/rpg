@@ -25,6 +25,7 @@
 #include "tui.h"
 #include "combat_stats.h"
 #include "ability_callbacks.h"
+#include "color.h"
 
 
 
@@ -1021,6 +1022,11 @@ choose_spell(hero_t * hero,
             done = 1;
             break;
 
+        case 'n':
+            status = insect_swarm(hero, enemy);
+            done = 1;
+            break;
+
         default:
             printf("error: invalid input %c\n", act_var);
             break;
@@ -1396,14 +1402,16 @@ elem_to_str(const element_t elem)
         return "shadow";
     case NON_ELEM:
         return "non-elemental";
+    case HOLY:
+        return "holy";
+    case NATURE:
+        return "nature";
     case RESTORATION:
         return "restoration";
     }
 
     return "error: what is this?";
 }
-
-
 
 
 
@@ -1817,18 +1825,17 @@ void
 sprintf_item_name(char *         name,
                   const item_t * item)
 {
-
     switch (item->tier) {
     case GOOD:
-        sprintf(name, "\e[1;32m%s\e[0m", item->name);
+        sprintf(name, "%s%s%s", BGRN, item->name, reset);
         break;
 
     case RARE:
-        sprintf(name, "\e[1;34m%s\e[0m", item->name);
+        sprintf(name, "%s%s%s", BBLU, item->name, reset);
         break;
 
     case EPIC:
-        sprintf(name, "\e[1;35m%s\e[0m", item->name);
+        sprintf(name, "%s%s%s", BMAG, item->name, reset);
         break;
 
     case COMMON:
@@ -2247,6 +2254,40 @@ holy_smite(hero_t * hero,
     hero->cooldowns[HOLY_SMITE].rounds = 2;
 
     return hp_reduced;
+}
+
+
+
+size_t
+insect_swarm(hero_t * hero,
+             hero_t * enemy)
+{
+    // Swarm the enemy target with insects, dealing damage over time
+    // and reducing their chance to hit with attacks.
+
+    if (!hero->cooldowns[INSECT_SWARM].unlocked) {
+        // Haven't learned this ability yet.
+        return 0;
+    }
+
+    if (hero->cooldowns[INSECT_SWARM].rounds) {
+        printf("insect swarm on cooldown for %zu rounds\n",
+               hero->cooldowns[HOLY_SMITE].rounds);
+        return 0;
+    }
+
+    float total_spirit = (float) get_total_stat(hero, SPIRIT);
+    float total_str = (float) get_total_stat(hero, STRENGTH);
+
+    size_t rounds = 5;
+    float  dot_mult = 0.5;
+    float  dot_amnt = (dot_mult * (total_spirit + total_str)) / rounds;
+
+    apply_debuff(enemy, "insect swarm", DOT, NATURE, dot_amnt, rounds, 0);
+
+    hero->cooldowns[INSECT_SWARM].rounds = 1;
+
+    return dot_amnt;
 }
 
 

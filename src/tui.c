@@ -165,6 +165,10 @@ print_spell_prompt(const hero_t * h)
         printf("    h: holy smite\n");
     }
 
+    if (h->cooldowns[INSECT_SWARM].unlocked) {
+        printf("    n: insect swarm\n");
+    }
+
     return;
 }
 
@@ -249,6 +253,10 @@ clear_spell_prompt(const hero_t * h)
     }
 
     if (h->cooldowns[HOLY_SMITE].unlocked) {
+        printf("\r\033[A");
+    }
+
+    if (h->cooldowns[INSECT_SWARM].unlocked) {
         printf("\r\033[A");
     }
 

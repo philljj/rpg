@@ -42,6 +42,17 @@ typedef enum {
     RANDOM_ANIMAL = 99
 } animal_t;
 
+/*
+ * Druid: Nature and Shadow damage
+ * Geomancer: Nature and Fire and Frost damage
+ * Necromancer: Shadow and Frost damage
+ * Priest: Holy damage
+ * Wizard: Fire, Frost, and non-elemental damage.
+ * Time Mage: Non-Elemental damage (meteor).
+ *
+ *
+ */
+
 typedef enum {
     THIEF           = 0, // cloth, leather, one hand
     BARBARIAN       = 1, // cloth, leather, two hand
@@ -159,7 +170,6 @@ const char * armor_to_str(armor_t a);
 const char * mob_to_str(const mob_t m);
 const char * elem_to_str(const element_t elem);
 
-
 // Combat functions.
 void   decision_loop(hero_t * hero, hero_t * enemy);
 void   spirit_regen(hero_t * h);
@@ -173,6 +183,7 @@ size_t crushing_blow(hero_t * hero, hero_t * enemy);
 size_t drain_touch(hero_t * hero, hero_t * enemy);
 size_t holy_smite(hero_t * hero, hero_t * enemy);
 size_t shield_bash(hero_t * hero, hero_t * enemy);
+size_t insect_swarm(hero_t * hero, hero_t * enemy);
 
 // Debuffs and cooldowns.
 void   apply_debuff(hero_t * enemy, const char * name,
