@@ -81,13 +81,14 @@ weapon_attack_i(hero_t *       hero,
 
     // TODO: print overkill?
 
+    char elem_str[64];
     if (is_crit) {
-        printf("%s crit %s for %zu hp damage\n", hero->name,
-               enemy->name, hp_reduced);
+        printf("%s crit %s for %zu %s damage\n", hero->name,
+               enemy->name, hp_reduced, elem_to_str(elem_str, MELEE));
     }
     else {
-        printf("%s attacked %s for %zu hp damage\n", hero->name,
-               enemy->name, hp_reduced);
+        printf("%s attacked %s for %zu %s damage\n", hero->name,
+               enemy->name, hp_reduced, elem_to_str(elem_str, MELEE));
     }
 
 END_ATTACK:
@@ -242,7 +243,8 @@ spell_heal_cb(void *      h,
 
     const char * what = "cure";
 
-    float heal_amnt = floor(heal_mult * get_spell_dmg(hero, RESTORATION, STD_SMEAR));
+    float heal_amnt = floor(heal_mult * get_spell_dmg(hero, RESTORATION,
+                                                      STD_SMEAR));
 
     size_t n = restore_hp(hero, (size_t) heal_amnt);
 

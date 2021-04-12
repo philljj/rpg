@@ -30,6 +30,7 @@ float  get_spell_res(const hero_t * h, const element_t element);
 float  get_elem_pow(const spell_t * power, const element_t element);
 float  get_elem_res(const spell_t * power, const element_t element);
 float  get_mitigation(const hero_t * h);
+float  get_mitigation_w_bypass(const hero_t * h, const float bypass);
 size_t get_armor(const hero_t * h);
 float  get_resist(const hero_t * h);
 float  get_dodge(const hero_t * h);

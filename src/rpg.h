@@ -42,16 +42,12 @@ typedef enum {
     RANDOM_ANIMAL = 99
 } animal_t;
 
-/*
- * Druid: Nature and Shadow damage
+/* Druid: Nature and Shadow damage
  * Geomancer: Nature and Fire and Frost damage
  * Necromancer: Shadow and Frost damage
  * Priest: Holy damage
  * Wizard: Fire, Frost, and non-elemental damage.
- * Time Mage: Non-Elemental damage (meteor).
- *
- *
- */
+ * Time Mage: Non-Elemental damage (meteor). */
 
 typedef enum {
     THIEF           = 0, // cloth, leather, one hand

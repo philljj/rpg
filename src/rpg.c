@@ -172,7 +172,7 @@ roll_hero(const size_t lvl)
         char   choice = safer_fgetc();
 
         switch (choice) {
-        case 't':
+        case 't': /* thief */
         case 'T':
             h.items[MAIN_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, MAIN_HAND,
                                            PIERCING);
@@ -180,7 +180,7 @@ roll_hero(const size_t lvl)
             done = 1;
             break;
 
-        case 'b':
+        case 'b': /* barbarian */
         case 'B':
             h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                          RANDOM_W);
@@ -188,7 +188,7 @@ roll_hero(const size_t lvl)
             done = 1;
             break;
 
-        case 's':
+        case 's': /* soldier */
         case 'S':
             h.items[MAIN_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, MAIN_HAND,
                                           RANDOM_W);
@@ -199,7 +199,7 @@ roll_hero(const size_t lvl)
             done = 1;
             break;
 
-        case 'p':
+        case 'p': /* priest */
         case 'P':
             h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                          BLUNT);
@@ -208,7 +208,7 @@ roll_hero(const size_t lvl)
             done = 1;
             break;
 
-        case 'd':
+        case 'd': /* druid */
         case 'D':
             h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                          BLUNT);
@@ -235,7 +235,7 @@ roll_hero(const size_t lvl)
             done = 1;
             break;
 
-        case 'k':
+        case 'k': /* knight */
         case 'K':
             h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                          BLUNT);
@@ -244,7 +244,7 @@ roll_hero(const size_t lvl)
             done = 1;
             break;
 
-        case 'g':
+        case 'g': /* geomancer */
         case 'G':
             h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
                                          BLUNT);
@@ -1137,14 +1137,14 @@ attack_barrier(size_t   final_dmg,
     size_t hp_reduced = 0;
 
     if (bp) {
-        // Reduce the barrier first.
+        /* Reduce the barrier first. */
         size_t dmg = final_dmg < bp ? final_dmg : bp;
         final_dmg -= dmg;
         enemy->bp -= dmg;
     }
 
     if (final_dmg) {
-        // Then the health pool with remaining dmg.
+        /* Then the health pool with remaining dmg. */
         hp_reduced = final_dmg < hp ? final_dmg : enemy->hp;
         enemy->hp -= hp_reduced;
     }
@@ -1409,6 +1409,8 @@ elem_to_str(char *          str,
             return "holy";
         case NATURE:
             return "nature";
+        case MELEE:
+            return "melee";
         case RESTORATION:
             return "restoration";
         }
@@ -1432,6 +1434,9 @@ elem_to_str(char *          str,
         break;
     case NATURE:
         sprintf(str, "%s%s%s", BGRN, "nature", reset);
+        break;
+    case MELEE:
+        sprintf(str, "%s%s%s", BWHT, "melee", reset);
         break;
     case RESTORATION:
         sprintf(str, "%s%s%s", BGRN, "restoration", reset);
@@ -1952,14 +1957,14 @@ shadow_bolt(hero_t * hero,
     return shadow_dmg;
 }
 
-
-
+/* Main hand piercing attack that does 3-4x damage, depending
+ * on weapon quality. Requires MAIN_HAND of PIERCING type. */
 size_t
 back_stab(hero_t * hero,
           hero_t * enemy)
 {
     if (!hero->cooldowns[BACK_STAB].unlocked) {
-        // Haven't learned this ability yet.
+        /* Haven't learned this ability yet. */
         return 0;
     }
 
@@ -1995,21 +2000,20 @@ back_stab(hero_t * hero,
         break;
     }
 
-    float  sb_dmg = get_melee_dmg(hero, &hero->items[MAIN_HAND], STD_SMEAR);
+    float  bs_dmg = get_melee_dmg(hero, &hero->items[MAIN_HAND], STD_SMEAR);
     float  mitigation = get_mitigation(enemy);
-    size_t final_dmg = (size_t) floor(mult * sb_dmg * mitigation);
+    size_t final_dmg = (size_t) floor(mult * bs_dmg * mitigation);
 
     if (!final_dmg) {
-        // Back stab failed for some reason.
+        /* Back stab failed for some reason. */
         return 0;
     }
-    // else, succeeded.
 
-    // Reduce enemy barrier and health.
     size_t hp_reduced = attack_barrier(final_dmg, enemy);
 
-    printf("back stab hit %s for %zu hp damage\n",
-           enemy->name, hp_reduced);
+    char elem_str[64];
+    printf("back stab hit %s for %zu %s damage\n",
+           enemy->name, hp_reduced, elem_to_str(elem_str, MELEE));
     increment_row();
 
     hero->cooldowns[BACK_STAB].rounds = 4;
@@ -2017,14 +2021,14 @@ back_stab(hero_t * hero,
     return hp_reduced;
 }
 
-
-
+/* Two hand attack that does 2-3x damage, depending on weapon
+ * quality. Bypasses %50 of armor mitigation */
 size_t
 crushing_blow(hero_t * hero,
               hero_t * enemy)
 {
     if (!hero->cooldowns[CRUSHING_BLOW].unlocked) {
-        // Haven't learned this ability yet.
+        /* Haven't learned this ability yet. */
         return 0;
     }
 
@@ -2059,9 +2063,9 @@ crushing_blow(hero_t * hero,
         break;
     }
 
-    float  sb_dmg = get_melee_dmg(hero, &hero->items[TWO_HAND], STD_SMEAR);
-    float  mitigation = get_mitigation(enemy);
-    size_t final_dmg = (size_t) floor(mult * sb_dmg * mitigation);
+    float  cb_dmg = get_melee_dmg(hero, &hero->items[TWO_HAND], STD_SMEAR);
+    float  mitigation = get_mitigation_w_bypass(enemy, 0.5);
+    size_t final_dmg = (size_t) floor(mult * cb_dmg * mitigation);
 
     if (!final_dmg) {
         // failed for some reason.
@@ -2072,8 +2076,9 @@ crushing_blow(hero_t * hero,
     // Reduce enemy barrier and health.
     size_t hp_reduced = attack_barrier(final_dmg, enemy);
 
-    printf("crushing blow hit %s for %zu hp damage\n",
-           enemy->name, hp_reduced);
+    char elem_str[64];
+    printf("crushing blow hit %s for %zu %s damage\n",
+           enemy->name, hp_reduced, elem_to_str(elem_str, MELEE));
     increment_row();
 
     hero->cooldowns[CRUSHING_BLOW].rounds = 4;
@@ -2081,14 +2086,18 @@ crushing_blow(hero_t * hero,
     return hp_reduced;
 }
 
-
-
+/*
+ * A necromantic weapon strike that does weapon damage as
+ * shadow damage, plus any bonus shadow spell power.
+ *
+ * The caster is healed for %50 of damage dealt.
+ */
 size_t
 drain_touch(hero_t * hero,
             hero_t * enemy)
 {
     if (!hero->cooldowns[DRAIN_TOUCH].unlocked) {
-        // Haven't learned this ability yet.
+        /* Haven't learned this ability yet. */
         return 0;
     }
 
@@ -2100,22 +2109,29 @@ drain_touch(hero_t * hero,
 
     size_t total_dmg = 0;
 
-    // Check 2 hand weapon first. If it is equipped, then stop
-    // after it does damage. Otherwise process both hands.
+    /* Check 2 hand weapon first. If it is equipped, then stop
+     * after it does damage. Otherwise process both hands.*/
     slot_t weaps[3] = { TWO_HAND, MAIN_HAND, OFF_HAND };
 
     for (size_t i = 0; i < 3; ++i) {
-        float  dt_dmg = get_melee_dmg(hero, &hero->items[weaps[i]],
-                                      STD_SMEAR);
+        float drain_touch_dmg = get_melee_dmg(hero, &hero->items[weaps[i]],
+                                              STD_SMEAR);
 
-        if (dt_dmg == 0) { continue; }
+        if (drain_touch_dmg == 0) { continue; }
 
-        float  mitigation = get_mitigation(enemy);
-        size_t final_dmg = (size_t) floor(dt_dmg * mitigation);
+        /* factor in melee mitigation */
+        drain_touch_dmg *= get_mitigation(enemy);
+
+         /* add in shadow spell power */
+        drain_touch_dmg += get_elem_pow(&hero->power, SHADOW);
+
+        size_t final_dmg = (size_t) floor(drain_touch_dmg);
         size_t hp_reduced = attack_barrier(final_dmg, enemy);
 
-        printf("drain touch hit %s for %zu hp damage\n",
-               enemy->name, hp_reduced);
+        char elem_str[64];
+
+        printf("drain touch hit %s for %zu %s hp damage\n",
+               enemy->name, hp_reduced, elem_to_str(elem_str, SHADOW));
         increment_row();
 
         total_dmg += hp_reduced;
@@ -2141,17 +2157,14 @@ drain_touch(hero_t * hero,
     return total_dmg;
 }
 
-
-
+/* Bash the target for 0.6 main hand dmg,
+ * and stuns target for one round. */
 size_t
 shield_bash(hero_t * hero,
             hero_t * enemy)
 {
-    // Bash the target for 0.6 main hand dmg,
-    // and stuns target for one round.
-
     if (!hero->cooldowns[SHIELD_BASH].unlocked) {
-        // Haven't learned this ability yet.
+        /* Haven't learned this ability yet. */
         return 0;
     }
 
@@ -2221,7 +2234,7 @@ fireball(hero_t * hero,
     // additional damage over 3 rounds.
 
     if (!hero->cooldowns[FIREBALL].unlocked) {
-        // Haven't learned this ability yet.
+        /* Haven't learned this ability yet. */
         return 0;
     }
 
@@ -2250,19 +2263,14 @@ fireball(hero_t * hero,
     return fire_dmg;
 }
 
-
-
+/* Strike target for holy damage, proportional to total spirit.
+ * No mana cost. */
 size_t
 holy_smite(hero_t * hero,
            hero_t * enemy)
 {
-    // TODO: change to smite or holy smite. Dmg proportional
-    //       to total spirit.
-    // 
-    // New function...
-
     if (!hero->cooldowns[HOLY_SMITE].unlocked) {
-        // Haven't learned this ability yet.
+        /* Haven't learned this ability yet. */
         return 0;
     }
 
@@ -2284,20 +2292,17 @@ holy_smite(hero_t * hero,
     return hp_reduced;
 }
 
-
-
+/*
+ * Swarm the enemy target with insects, dealing damage over time.
+ *   - Damage proportional to strength + spirit
+ *   - Damage lasts for 5 rounds.
+ *
+ * This debuff is stackable, and has no mana cost.
+ */
 size_t
 insect_swarm(hero_t * hero,
              hero_t * enemy)
 {
-   /*
-    * Swarm the enemy target with insects, dealing damage over time.
-    *   - Damage proportional to strength + spirit 
-    *   - Damage lasts for 5 rounds.
-    * 
-    * This debuff is stackable.
-    */
-
     if (!hero->cooldowns[INSECT_SWARM].unlocked) {
         /* Haven't learned this ability yet. */
         return 0;
@@ -2517,9 +2522,6 @@ char
 safer_fgetc(void)
 {
     int n = fgetc(stdin);
-
-    //printf("fgetc(stdin) returned %d\n", n);
-    //fflush(stdout);
 
     if (n > 0 && n < 255) {
         return (char) n;

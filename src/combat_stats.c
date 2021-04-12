@@ -238,12 +238,15 @@ get_elem_pow(const spell_t * power,
         spell_power += 0.5 * power->shadow;
         break;
     case HOLY:
-        // There is no holy spell resist. Holy pierces all defenses.
-        // Bonus holy power items will be rare.
+        /* There is no holy spell resist. Holy pierces all defenses.
+         * Bonus holy power items will be rare. */
         spell_power += power->holy;
         break;
     case NATURE:
         spell_power += power->nature;
+        break;
+    case MELEE:
+        /* not applicable */
         break;
     case RESTORATION:
         spell_power += power->restoration;
@@ -287,6 +290,9 @@ get_elem_res(const spell_t * resist,
     case NATURE:
         spell_resist += resist->nature;
         break;
+    case MELEE:
+        /* not applicable */
+        break;
     case RESTORATION:
         break;
     }
@@ -294,20 +300,29 @@ get_elem_res(const spell_t * resist,
     return spell_resist;
 }
 
-
 
+/* Given a hero, calculate it's melee damage mitigation from armor. */
 float
 get_mitigation(const hero_t * h)
 {
-    float  armor = (float) get_armor(h);
-    float  mitigation;
-
-    mitigation = 1 - (armor / (armor + ARMOR_HALF_POINT));
+    float armor = (float) get_armor(h);
+    float mitigation = 1 - (armor / (armor + ARMOR_HALF_POINT));
 
     return mitigation;
 }
 
-
+/* Used when a special melee attack bypasses a % of armor. */
+float
+get_mitigation_w_bypass(const hero_t * h,
+                        const float    bypass)
+{
+    float armor = (float) get_armor(h);
+    armor *= bypass;
+
+    float mitigation = 1 - (armor / (armor + ARMOR_HALF_POINT));
+
+    return mitigation;
+}
 
 size_t
 get_armor(const hero_t * h)

@@ -9,11 +9,12 @@ typedef enum {
     NON_ELEM,   /* spans FIRE FROST SHADOW, includes meteor */
     HOLY,       /* cannot be resisted */
     NATURE,     /* insect swarm, thorns, entangling roots */
+    MELEE,
     RESTORATION
 } element_t;
 
-// The cooldown_t enum will index into the cooldowns array.
-// Anything over MAX_COOLDOWNS is not implemented.
+/* The cooldown_t enum will index into the cooldowns array.
+ * Anything over MAX_COOLDOWNS is not implemented. */
 #define MAX_COOLDOWNS (10)
 typedef enum {
     // Beginner cooldown abilities.
@@ -31,8 +32,8 @@ typedef enum {
     METEOR        = 25, // Heavy non-elemental damage over 3 rounds.
 } cooldown_t;
 
-// Status type of debuff.
-// Anything over MAX_DEBUFFS is not implemented.
+/* Status type of debuff.
+ * Anything over MAX_DEBUFFS is not implemented. */
 #define MAX_DEBUFFS (32)
 typedef enum {
     // Debuffs.
