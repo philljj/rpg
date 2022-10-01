@@ -471,7 +471,7 @@ spawn_item_drop(hero_t * h)
     move_cursor(1, 1);
     del_eof();
 
-    set_hp_mp(h);
+    set_hp_mp_bp(h);
 
     move_cursor(1, 1);
     del_eof();

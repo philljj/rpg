@@ -142,7 +142,7 @@ void   gen_base_stats(hero_t * h);
 stats_t get_total_stats(const hero_t * h);
 
 void   level_up(hero_t * h);
-void   set_hp_mp(hero_t * h);
+void   set_hp_mp_bp(hero_t * h);
 size_t get_max_hp(const hero_t * h);
 size_t get_max_mp(const hero_t * h);
 

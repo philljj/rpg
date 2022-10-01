@@ -38,19 +38,19 @@ main(int    argc   __attribute__((unused)),
     init_rand();
     clear_screen();
 
-    size_t h_ini_lvl = 2;
-    size_t e_ini_lvl = 1;
+    size_t h_lvl = 2;
+    size_t e_lvl = 1;
 
     hero_t hero;
     hero_t enemy;
-    roll_player_hero(&hero, h_ini_lvl);
+    roll_player_hero(&hero, h_lvl);
 
     print_portrait(&hero, PORTRAIT_ROW, PORTRAIT_COL);
 
     hero.xp_req = 1;
 
     for (;;) {
-        roll_mob(&enemy, 0, e_ini_lvl, RANDOM_M);
+        roll_mob(&enemy, 0, e_lvl, RANDOM_M);
         print_portrait(&enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
         battle(&hero, &enemy);
@@ -59,7 +59,7 @@ main(int    argc   __attribute__((unused)),
             break;
         }
 
-        set_hp_mp(&hero);
+        set_hp_mp_bp(&hero);
 
         printf("%s gains %zu xp and %zu gold\n", hero.name, enemy.xp_rew,
                enemy.gold);
@@ -74,7 +74,7 @@ main(int    argc   __attribute__((unused)),
 
             hero.xp_req++;
 
-            e_ini_lvl++;
+            e_lvl++;
         }
     }
 
@@ -266,7 +266,7 @@ roll_player_hero(hero_t *     h,
 
     gen_item_set(h, h->level, COMMON, CLOTH);
 
-    set_hp_mp(h);
+    set_hp_mp_bp(h);
 
     return h;
 }
@@ -372,7 +372,7 @@ roll_humanoid(hero_t *     h,
 
     }
 
-    set_hp_mp(h);
+    set_hp_mp_bp(h);
 
     return h;
 }
@@ -458,7 +458,7 @@ roll_animal(hero_t *     h,
         break;
     }
 
-    set_hp_mp(h);
+    set_hp_mp_bp(h);
 
     return h;
 }
@@ -561,7 +561,7 @@ roll_dragon(hero_t *     h,
         break;
     }
 
-    set_hp_mp(h);
+    set_hp_mp_bp(h);
 
     return h;
 }
@@ -650,7 +650,7 @@ level_up(hero_t * h)
 
     h->xp = 0;
 
-    set_hp_mp(h);
+    set_hp_mp_bp(h);
 
     print_portrait(h, PORTRAIT_ROW, PORTRAIT_COL);
 
@@ -662,23 +662,11 @@ level_up(hero_t * h)
 
 
 void
-set_hp_mp(hero_t * h)
+set_hp_mp_bp(hero_t * h)
 {
-    size_t stamina = h->base.sta;
-    size_t wisdom = h->base.wis;
-
-    for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (h->items[i].slot == NO_ITEM) {
-            // Nothing to do.
-            continue;
-        }
-
-        stamina += h->items[i].attr.sta;
-        wisdom += h->items[i].attr.wis;
-    }
-
-    h->hp = HP_MULT * stamina;
-    h->mp = MP_MULT * wisdom;
+    h->hp = get_max_hp(h);
+    h->mp = get_max_mp(h);
+    h->bp = 0;
 
     return;
 }
