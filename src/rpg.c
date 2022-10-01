@@ -43,11 +43,11 @@ main(int    argc   __attribute__((unused)),
 
     hero_t hero;
     hero_t enemy;
-    roll_hero(&hero, h_ini_lvl);
+    roll_player_hero(&hero, h_ini_lvl);
 
     print_portrait(&hero, PORTRAIT_ROW, PORTRAIT_COL);
 
-    size_t xp_req = 1;
+    hero.xp_req = 1;
 
     for (;;) {
         roll_mob(&enemy, 0, e_ini_lvl, RANDOM_M);
@@ -61,14 +61,18 @@ main(int    argc   __attribute__((unused)),
 
         set_hp_mp(&hero);
 
-        hero.xp++;
+        printf("%s gains %zu xp and %zu gold\n", hero.name, enemy.xp_rew,
+               enemy.gold);
+        hero.xp += enemy.xp_rew;
+        hero.gold += enemy.gold;
+        sleep(1);
 
         spawn_item_drop(&hero);
 
-        if (hero.xp >= xp_req) {
+        if (hero.xp >= hero.xp_req) {
             level_up(&hero);
 
-            xp_req++;
+            hero.xp_req++;
 
             e_ini_lvl++;
         }
@@ -101,11 +105,12 @@ roll_mob(hero_t *     hero,
 
 
 hero_t *
-roll_hero(hero_t *     h,
-          const size_t lvl)
+roll_player_hero(hero_t *     h,
+                 const size_t lvl)
 {
     memset(h, 0, sizeof(hero_t));
 
+    h->gold = 10;
     h->attack = weapon_attack_cb;
     h->spell = spell_attack_cb;
     h->heal = spell_heal_cb;
@@ -277,6 +282,8 @@ roll_humanoid(hero_t *     h,
     h->mob_type = HUMANOID;
     h->sub_type = safer_rand(0, KNIGHT);
 
+    h->gold = safer_rand(5, 15);
+    h->xp_rew = safer_rand(1, 3);
     h->attack = weapon_attack_cb;
     h->spell = spell_attack_cb;
     h->heal = spell_heal_cb;
@@ -378,6 +385,7 @@ roll_animal(hero_t *     h,
 {
     memset(h, 0, sizeof(hero_t));
 
+    h->xp_rew = safer_rand(1, 3);
     h->mob_type = ANIMAL;
     h->sub_type = safer_rand(0, BEAR);
 
@@ -469,6 +477,8 @@ roll_dragon(hero_t *     h,
     //       at high enough level.
     size_t d_lvl = (lvl / 10) + 1;
 
+    h->gold = safer_rand(5, 15);
+    h->xp_rew = safer_rand(1, 3);
     h->mob_type = DRAGON;
     h->sub_type = safer_rand(0, d_lvl);
 
@@ -877,6 +887,8 @@ battle(hero_t * hero,
     else if (hero->hp && !enemy->hp) {
         printf("%s has defeated %s!\n\n", hero->name, enemy->name);
     }
+
+    sleep(1);
 
     reset_cursor();
     del_eof();

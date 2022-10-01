@@ -105,10 +105,13 @@ struct hero_t {
     mob_t    mob_type;
     int      sub_type;               // sub_type of mob.
     size_t   level;
+    size_t   gold;
     size_t   hp;                     // Health Points.
     size_t   mp;                     // Mana Points.
     size_t   bp;                     // Barrier Points.
     size_t   xp;                     // Experience Points.
+    size_t   xp_req;                 // XP required to level up
+    size_t   xp_rew;                 // XP rewarded for defeating this mob.
     size_t   armor;                  // Mitigates physical damage.
     stats_t  base;                   // Base attributes. Increases with level.
     spell_t  power;                  // Enhances spell damage given.
@@ -129,7 +132,7 @@ struct hero_t {
 typedef struct hero_t hero_t;
 
 // Basic mob gen functions.
-hero_t * roll_hero(hero_t * h, const size_t lvl);
+hero_t * roll_player_hero(hero_t * h, const size_t lvl);
 hero_t * roll_mob(hero_t * h, const char * name, const size_t lvl, mob_t m);
 hero_t * roll_humanoid(hero_t * hero, const char * name, const size_t lvl);
 hero_t * roll_animal(hero_t * hero, const char * name, const size_t lvl);
