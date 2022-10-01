@@ -41,14 +41,16 @@ main(int    argc   __attribute__((unused)),
     size_t h_ini_lvl = 2;
     size_t e_ini_lvl = 1;
 
-    hero_t hero = roll_hero(h_ini_lvl);
+    hero_t hero;
+    hero_t enemy;
+    roll_hero(&hero, h_ini_lvl);
 
     print_portrait(&hero, PORTRAIT_ROW, PORTRAIT_COL);
 
     size_t xp_req = 1;
 
     for (;;) {
-        hero_t enemy = roll_mob(0, e_ini_lvl, RANDOM_M);
+        roll_mob(&enemy, 0, e_ini_lvl, RANDOM_M);
         print_portrait(&enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
         battle(&hero, &enemy);
@@ -76,50 +78,49 @@ main(int    argc   __attribute__((unused)),
 }
 
 
-hero_t
-roll_mob(const char * name,
+hero_t *
+roll_mob(hero_t *     hero,
+         const char * name,
          const size_t lvl,
          mob_t        mob)
 {
-    if (mob == RANDOM_M) {
+    if (mob == RANDOM_M)
         mob = safer_rand(0, DRAGON);
-    }
 
     switch (mob) {
     case HUMANOID:
-        return roll_humanoid(name, lvl);
+        return roll_humanoid(hero, name, lvl);
     case ANIMAL:
-        return roll_animal(name, lvl);
+        return roll_animal(hero, name, lvl);
     case DRAGON:
-        return roll_dragon(name, lvl);
+        return roll_dragon(hero, name, lvl);
     default:
-        return roll_humanoid(name, lvl);
+        return roll_humanoid(hero, name, lvl);
     }
 }
 
 
-hero_t
-roll_hero(const size_t lvl)
+hero_t *
+roll_hero(hero_t *     h,
+          const size_t lvl)
 {
-    hero_t h;
+    memset(h, 0, sizeof(hero_t));
 
-    memset(&h, 0, sizeof(h));
+    h->attack = weapon_attack_cb;
+    h->spell = spell_attack_cb;
+    h->heal = spell_heal_cb;
 
-    h.attack = weapon_attack_cb;
-    h.spell = spell_attack_cb;
-    h.heal = spell_heal_cb;
+    h->level = lvl ? lvl : 1;
 
-    h.level = lvl ? lvl : 1;
-
-    gen_base_stats(&h);
+    gen_base_stats(h);
 
     for (;;) {
-        memset(h.name, '\0', MAX_NAME_LEN);
-        strcat(h.name, prefix_list[safer_rand(0, MAX_PREFIX - 1)]);
-        strcat(h.name, suffix_list[safer_rand(0, MAX_SUFFIX - 1)]);
+        memset(h->name, '\0', MAX_NAME_LEN);
+        strcat(h->name, prefix_list[safer_rand(0, MAX_PREFIX - 1)]);
+        strcat(h->name, suffix_list[safer_rand(0, MAX_SUFFIX - 1)]);
 
         clear_screen();
-        printf("character name: %s\n", h.name);
+        printf("character name: %s\n", h->name);
         printf("y to accept, n to regenerate\n");
 
         size_t done = 0;
@@ -145,11 +146,11 @@ roll_hero(const size_t lvl)
     clear_screen();
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        h.items[i].slot = NO_ITEM;
+        h->items[i].slot = NO_ITEM;
     }
 
     for (size_t i = 0; i < MAX_INVENTORY; ++i) {
-        h.inventory[i].slot = NO_ITEM;
+        h->inventory[i].slot = NO_ITEM;
     }
 
     for (;;) {
@@ -171,82 +172,82 @@ roll_hero(const size_t lvl)
         switch (choice) {
         case 't': /* thief */
         case 'T':
-            h.items[MAIN_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, MAIN_HAND,
+            h->items[MAIN_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, MAIN_HAND,
                                            PIERCING);
-            h.cooldowns[BACK_STAB].unlocked = 1;
+            h->cooldowns[BACK_STAB].unlocked = 1;
             done = 1;
             break;
 
         case 'b': /* barbarian */
         case 'B':
-            h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+            h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
                                          RANDOM_W);
-            h.cooldowns[CRUSHING_BLOW].unlocked = 1;
+            h->cooldowns[CRUSHING_BLOW].unlocked = 1;
             done = 1;
             break;
 
         case 's': /* soldier */
         case 'S':
-            h.items[MAIN_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, MAIN_HAND,
+            h->items[MAIN_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, MAIN_HAND,
                                           RANDOM_W);
-            h.items[OFF_HAND] = gen_item(0, h.level, COMMON, 0, SHIELD, OFF_HAND,
+            h->items[OFF_HAND] = gen_item(0, h->level, COMMON, 0, SHIELD, OFF_HAND,
                                           NO_WEAPON);
 
-            h.cooldowns[SHIELD_BASH].unlocked = 1;
+            h->cooldowns[SHIELD_BASH].unlocked = 1;
             done = 1;
             break;
 
         case 'p': /* priest */
         case 'P':
-            h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+            h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
                                          BLUNT);
 
-            h.cooldowns[HOLY_SMITE].unlocked = 1;
+            h->cooldowns[HOLY_SMITE].unlocked = 1;
             done = 1;
             break;
 
         case 'd': /* druid */
         case 'D':
-            h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+            h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
                                          BLUNT);
 
-            h.cooldowns[INSECT_SWARM].unlocked = 1;
+            h->cooldowns[INSECT_SWARM].unlocked = 1;
             done = 1;
             break;
 
         case 'w': /* wizard */
         case 'W':
-            h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+            h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
                                          BLUNT);
 
-            h.cooldowns[FIREBALL].unlocked = 1;
+            h->cooldowns[FIREBALL].unlocked = 1;
             done = 1;
             break;
 
         case 'n': /* necromancer */
         case 'N':
-            h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+            h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
                                          BLUNT);
 
-            h.cooldowns[DRAIN_TOUCH].unlocked = 1;
+            h->cooldowns[DRAIN_TOUCH].unlocked = 1;
             done = 1;
             break;
 
         case 'k': /* knight */
         case 'K':
-            h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+            h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
                                          BLUNT);
 
-            h.cooldowns[SHIELD_WALL].unlocked = 1;
+            h->cooldowns[SHIELD_WALL].unlocked = 1;
             done = 1;
             break;
 
         case 'g': /* geomancer */
         case 'G':
-            h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+            h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
                                          BLUNT);
 
-            h.cooldowns[ELEMENTAL].unlocked = 1;
+            h->cooldowns[ELEMENTAL].unlocked = 1;
             done = 1;
             break;
         }
@@ -258,212 +259,209 @@ roll_hero(const size_t lvl)
 
     clear_screen();
 
-    gen_item_set(&h, h.level, COMMON, CLOTH);
+    gen_item_set(h, h->level, COMMON, CLOTH);
 
-    set_hp_mp(&h);
+    set_hp_mp(h);
 
     return h;
 }
 
 
-hero_t
-roll_humanoid(const char * name,
+hero_t *
+roll_humanoid(hero_t *     h,
+              const char * name,
               const size_t lvl)
 {
-    hero_t h;
+    memset(h, 0, sizeof(hero_t));
 
-    memset(&h, 0, sizeof(h));
+    h->mob_type = HUMANOID;
+    h->sub_type = safer_rand(0, KNIGHT);
 
-    h.mob_type = HUMANOID;
-    h.sub_type = safer_rand(0, KNIGHT);
+    h->attack = weapon_attack_cb;
+    h->spell = spell_attack_cb;
+    h->heal = spell_heal_cb;
 
-    h.attack = weapon_attack_cb;
-    h.spell = spell_attack_cb;
-    h.heal = spell_heal_cb;
+    h->level = lvl ? lvl : 1;
 
-    h.level = lvl ? lvl : 1;
-
-    gen_base_stats(&h);
+    gen_base_stats(h);
 
     if (name && *name) {
-        strcpy(h.name, name);
+        strcpy(h->name, name);
     }
     else {
-        switch (h.sub_type) {
+        switch (h->sub_type) {
         case BARBARIAN:
-            strcpy(h.name, "barbarian");
+            strcpy(h->name, "barbarian");
             break;
         case SOLDIER:
-            strcpy(h.name, "soldier");
+            strcpy(h->name, "soldier");
             break;
         case PRIEST:
-            strcpy(h.name, "priest");
+            strcpy(h->name, "priest");
             break;
         case WIZARD:
-            strcpy(h.name, "wizard");
+            strcpy(h->name, "wizard");
             break;
         case KNIGHT:
-            strcpy(h.name, "knight");
+            strcpy(h->name, "knight");
             break;
         default:
-            strcpy(h.name, "thief");
+            strcpy(h->name, "thief");
             break;
         }
     }
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        h.items[i].slot = NO_ITEM;
+        h->items[i].slot = NO_ITEM;
     }
 
-    switch (h.sub_type) {
+    switch (h->sub_type) {
     case BARBARIAN:
-        h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+        h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
                                      RANDOM_W);
-        gen_item_set(&h, h.level, COMMON, LEATHER);
+        gen_item_set(h, h->level, COMMON, LEATHER);
 
         break;
 
     case SOLDIER:
-        h.items[MAIN_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, MAIN_HAND,
+        h->items[MAIN_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, MAIN_HAND,
                                      RANDOM_W);
-        h.items[OFF_HAND] = gen_item(0, h.level, COMMON, 0, SHIELD, OFF_HAND,
+        h->items[OFF_HAND] = gen_item(0, h->level, COMMON, 0, SHIELD, OFF_HAND,
                                      NO_WEAPON);
 
-        gen_item_set(&h, h.level, COMMON, MAIL);
+        gen_item_set(h, h->level, COMMON, MAIL);
 
         break;
 
     case WIZARD:
     case PRIEST:
-        h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+        h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
                                      BLUNT);
 
-        gen_item_set(&h, h.level, COMMON, CLOTH);
+        gen_item_set(h, h->level, COMMON, CLOTH);
 
         break;
 
     case KNIGHT:
-        h.items[MAIN_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, MAIN_HAND,
+        h->items[MAIN_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, MAIN_HAND,
                                       RANDOM_W);
-        h.items[OFF_HAND] = gen_item(0, h.level, COMMON, 0, SHIELD, OFF_HAND,
+        h->items[OFF_HAND] = gen_item(0, h->level, COMMON, 0, SHIELD, OFF_HAND,
                                      NO_WEAPON);
 
-        gen_item_set(&h, h.level, COMMON, PLATE);
+        gen_item_set(h, h->level, COMMON, PLATE);
 
         break;
 
     case THIEF:
     default:
-        h.items[MAIN_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, MAIN_HAND,
+        h->items[MAIN_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, MAIN_HAND,
                                      RANDOM_W);
-        h.items[OFF_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, OFF_HAND,
+        h->items[OFF_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, OFF_HAND,
                                      PIERCING);
 
-        gen_item_set(&h, h.level, COMMON, LEATHER);
+        gen_item_set(h, h->level, COMMON, LEATHER);
 
         break;
 
     }
 
-    set_hp_mp(&h);
+    set_hp_mp(h);
 
     return h;
 }
 
 
-hero_t
-roll_animal(const char * name,
+hero_t *
+roll_animal(hero_t *     h,
+            const char * name,
             const size_t lvl)
 {
-    hero_t h;
+    memset(h, 0, sizeof(hero_t));
 
-    memset(&h, 0, sizeof(h));
-
-    h.mob_type = ANIMAL;
-    h.sub_type = safer_rand(0, BEAR);
+    h->mob_type = ANIMAL;
+    h->sub_type = safer_rand(0, BEAR);
 
     if (name && *name) {
-        strcpy(h.name, name);
+        strcpy(h->name, name);
     }
     else {
         const size_t j = safer_rand(0, NUM_MOB_SUB_TYPES);
-        switch (h.sub_type) {
+        switch (h->sub_type) {
         case DOG:
-            strcpy(h.name, dog_list[j]);
+            strcpy(h->name, dog_list[j]);
             break;
         case CAT:
-            strcpy(h.name, cat_list[j]);
+            strcpy(h->name, cat_list[j]);
             break;
         case BOAR:
-            strcpy(h.name, boar_list[j]);
+            strcpy(h->name, boar_list[j]);
             break;
         case BEAR:
-            strcpy(h.name, bear_list[j]);
+            strcpy(h->name, bear_list[j]);
             break;
         default:
         case FLYING:
-            strcpy(h.name, flying_list[j]);
+            strcpy(h->name, flying_list[j]);
             break;
         }
     }
 
-    h.attack = weapon_attack_cb;
+    h->attack = weapon_attack_cb;
 
-    h.level = lvl ? lvl : 1;
+    h->level = lvl ? lvl : 1;
 
-    gen_base_stats(&h);
+    gen_base_stats(h);
 
-    switch (h.sub_type) {
+    switch (h->sub_type) {
     case BEAR:
-        h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+        h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
                                      BLUNT);
 
-        gen_item_set(&h, h.level, COMMON, PLATE);
+        gen_item_set(h, h->level, COMMON, PLATE);
 
         break;
 
     case BOAR:
-        h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+        h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
                                      EDGED);
 
-        gen_item_set(&h, h.level, COMMON, MAIL);
+        gen_item_set(h, h->level, COMMON, MAIL);
 
         break;
 
     case DOG:
-        h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+        h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
                                      PIERCING);
 
-        gen_item_set(&h, h.level, COMMON, LEATHER);
+        gen_item_set(h, h->level, COMMON, LEATHER);
 
         break;
 
     case CAT:
     case FLYING:
     default:
-        h.items[MAIN_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, MAIN_HAND,
+        h->items[MAIN_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, MAIN_HAND,
                                        PIERCING);
-        h.items[OFF_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, OFF_HAND,
+        h->items[OFF_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, OFF_HAND,
                                        PIERCING);
 
-        gen_item_set(&h, h.level, COMMON, CLOTH);
+        gen_item_set(h, h->level, COMMON, CLOTH);
 
         break;
     }
 
-    set_hp_mp(&h);
+    set_hp_mp(h);
 
     return h;
 }
 
 
-hero_t
-roll_dragon(const char * name,
+hero_t *
+roll_dragon(hero_t *     h,
+            const char * name,
             const size_t lvl)
 {
-    hero_t h;
-
-    memset(&h, 0, sizeof(h));
+    memset(h, 0, sizeof(hero_t));
 
     // More powerful dragon sub_type appear at higher levels.
     //
@@ -471,89 +469,89 @@ roll_dragon(const char * name,
     //       at high enough level.
     size_t d_lvl = (lvl / 10) + 1;
 
-    h.mob_type = DRAGON;
-    h.sub_type = safer_rand(0, d_lvl);
+    h->mob_type = DRAGON;
+    h->sub_type = safer_rand(0, d_lvl);
 
     if (name && *name) {
-        strcpy(h.name, name);
+        strcpy(h->name, name);
     }
     else {
         const size_t j = safer_rand(0, NUM_MOB_SUB_TYPES);
-        switch (h.sub_type) {
+        switch (h->sub_type) {
         case FOREST_DRAGON:
-            strcpy(h.name, forest_dragon_list[j]);
+            strcpy(h->name, forest_dragon_list[j]);
             break;
         case SAND_DRAGON:
-            strcpy(h.name, sand_dragon_list[j]);
+            strcpy(h->name, sand_dragon_list[j]);
             break;
         case WATER_DRAGON:
-            strcpy(h.name, water_dragon_list[j]);
+            strcpy(h->name, water_dragon_list[j]);
             break;
         case FIRE_DRAGON:
-            strcpy(h.name, fire_dragon_list[j]);
+            strcpy(h->name, fire_dragon_list[j]);
             break;
         default:
         case WHELPLING:
-            strcpy(h.name, whelp_list[j]);
+            strcpy(h->name, whelp_list[j]);
             break;
         }
     }
 
-    h.attack = weapon_attack_cb;
+    h->attack = weapon_attack_cb;
 
-    h.level = lvl ? lvl : 1;
+    h->level = lvl ? lvl : 1;
 
-    gen_base_stats(&h);
+    gen_base_stats(h);
 
-    switch (h.sub_type) {
+    switch (h->sub_type) {
     case FOREST_DRAGON:
-        h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+        h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
                                       BLUNT);
 
-        gen_item_set(&h, h.level, COMMON, LEATHER);
+        gen_item_set(h, h->level, COMMON, LEATHER);
 
         break;
 
     case SAND_DRAGON:
-        h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+        h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
                                      EDGED);
 
-        gen_item_set(&h, h.level, COMMON, MAIL);
+        gen_item_set(h, h->level, COMMON, MAIL);
 
         break;
 
     case WATER_DRAGON:
-        h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+        h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
                                      PIERCING);
 
-        gen_item_set(&h, h.level, COMMON, LEATHER);
+        gen_item_set(h, h->level, COMMON, LEATHER);
 
         break;
 
     case FIRE_DRAGON:
         // Fire breathing dragon. The real deal.
-        h.attack = dragon_breath_cb;
+        h->attack = dragon_breath_cb;
 
-        h.items[TWO_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, TWO_HAND,
+        h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
                                      PIERCING);
 
-        gen_item_set(&h, h.level, COMMON, PLATE);
+        gen_item_set(h, h->level, COMMON, PLATE);
 
         break;
 
     case WHELPLING:
     default:
-        h.items[MAIN_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, MAIN_HAND,
+        h->items[MAIN_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, MAIN_HAND,
                                        PIERCING);
-        h.items[OFF_HAND] = gen_item(0, h.level, COMMON, 1, WEAPON, OFF_HAND,
+        h->items[OFF_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, OFF_HAND,
                                        PIERCING);
 
-        gen_item_set(&h, h.level, COMMON, CLOTH);
+        gen_item_set(h, h->level, COMMON, CLOTH);
 
         break;
     }
 
-    set_hp_mp(&h);
+    set_hp_mp(h);
 
     return h;
 }

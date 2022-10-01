@@ -129,11 +129,11 @@ struct hero_t {
 typedef struct hero_t hero_t;
 
 // Basic mob gen functions.
-hero_t roll_hero(const size_t lvl);
-hero_t roll_mob(const char * name, const size_t lvl, mob_t mob);
-hero_t roll_humanoid(const char * name, const size_t lvl);
-hero_t roll_animal(const char * name, const size_t lvl);
-hero_t roll_dragon(const char * name, const size_t lvl);
+hero_t * roll_hero(hero_t * h, const size_t lvl);
+hero_t * roll_mob(hero_t * h, const char * name, const size_t lvl, mob_t m);
+hero_t * roll_humanoid(hero_t * hero, const char * name, const size_t lvl);
+hero_t * roll_animal(hero_t * hero, const char * name, const size_t lvl);
+hero_t * roll_dragon(hero_t * hero, const char * name, const size_t lvl);
 void   gen_base_stats(hero_t * h);
 
 stats_t get_total_stats(const hero_t * h);
