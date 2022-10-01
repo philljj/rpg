@@ -15,19 +15,20 @@ typedef enum {
 
 /* The cooldown_t enum will index into the cooldowns array.
  * Anything over MAX_COOLDOWNS is not implemented. */
-#define MAX_COOLDOWNS (10)
+#define MAX_COOLDOWNS (11)
 typedef enum {
     // Beginner cooldown abilities.
-    BACK_STAB     = 0,  // Triple damage main hand dagger strike. No dodge.
-    CRUSHING_BLOW = 1,  // Double damage two hand strike.
-    SHIELD_BASH   = 2,  // Bash for X damage and stun for one round.
-    HOLY_SMITE    = 3,  // Holy dmg equal to caster's spirit.
-    INSECT_SWARM  = 4,  // Nature DoT, reduces enemy chance to hit.
-    FIREBALL      = 5,  // Fire spell for %150 spell dmg, plus 50% over 3 rounds.
-    DRAIN_TOUCH   = 6,  // Weapon attack and heal for 50% of dmg.
-    SHIELD_WALL   = 7,  // Reduces all damage by 90% for 3 rounds.
-    ELEMENTAL     = 8,  // Geomancer elemental attack.
-    REGEN         = 9,  // Heals for 100% of health over 3 rounds. No mana cost.
+    BACK_STAB     =  0,  // Triple damage main hand dagger strike. No dodge.
+    CRUSHING_BLOW =  1,  // Double damage two hand strike.
+    USE_ITEM      =  2,  // Use item from inventory.
+    SHIELD_BASH   =  3,  // Bash for X damage and stun for one round.
+    HOLY_SMITE    =  4,  // Holy dmg equal to caster's spirit.
+    INSECT_SWARM  =  5,  // Nature DoT, free, stackable, short duration.
+    FIREBALL      =  6,  // Fire spell for %150 spell dmg, plus 50% over 3 rounds.
+    DRAIN_TOUCH   =  7,  // Weapon attack and heal for 50% of dmg.
+    SHIELD_WALL   =  8,  // Reduces all damage by 90% for 3 rounds.
+    ELEMENTAL     =  9,  // Geomancer elemental attack.
+    REGEN         = 10,  // Heals for 100% of health over 3 rounds. No mana cost.
     // Novice.
     METEOR        = 25, // Heavy non-elemental damage over 3 rounds.
 } cooldown_t;

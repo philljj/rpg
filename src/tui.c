@@ -13,14 +13,6 @@ static size_t row_ = 0;
 static size_t col_ = 0;
 
 // Prompts.
-static const char * action_prompt = "\n"
-                                    "  choose action:\n"
-                                    "    a: attack\n"
-                                    "    s: spell\n"
-                                    "    d: defend\n"
-                                    "    h: heal\n"
-                                    "    i: inventory\n";
-
 static const char * spell_prompt = "\n"
                                    "  choose spell:\n"
                                    "    f: fire strike\n"
@@ -112,26 +104,34 @@ clear_screen(void)
 
 
 void
-print_act_prompt(void)
+print_act_prompt(const hero_t * h)
 {
-    printf("%s", action_prompt);
+    printf("\n");
+    printf("  choose melee attack:\n");
+    printf("    a: attack\n");
+    printf("    s: spell\n");
+    printf("    d: defend\n");
+    printf("    h: heal\n");
+
+    if (h->cooldowns[USE_ITEM].unlocked)
+        printf("    u: use item\n");
 
     return;
 }
 
 
 void
-clear_act_prompt(void)
+clear_act_prompt(const hero_t * h)
 {
-    const char * ptr = action_prompt;
+    printf("\r\033[A");
+    printf("\r\033[A");
+    printf("\r\033[A");
+    printf("\r\033[A");
+    printf("\r\033[A");
+    printf("\r\033[A");
 
-    while (*ptr) {
-        if (*ptr == '\n') {
-            printf("\r\033[A");
-        }
-
-        ++ptr;
-    }
+    if (h->cooldowns[USE_ITEM].unlocked)
+        printf("\r\033[A");
 
     // Not sure why this one extra needed.
     printf("\r\033[A");
@@ -175,7 +175,6 @@ print_heal_prompt(const hero_t * h)
 
     return;
 }
-
 
 void
 clear_heal_prompt(const hero_t * h)

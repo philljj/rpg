@@ -162,6 +162,7 @@ roll_player_hero(hero_t *     h,
         clear_screen();
         printf("choose specialization:\n");
         printf("  t - Thief. Unlocks back stab.\n");
+        printf("  c - Chemist. Unlocks Use / Throw / Mix items.\n");
         printf("  b - Barbarian. Unlocks crushing blow.\n");
         printf("  s - Soldier. Unlocks shield bash.\n");
         printf("  p - Priest. Unlocks holy smite.\n");
@@ -188,6 +189,15 @@ roll_player_hero(hero_t *     h,
             h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
                                          RANDOM_W);
             h->cooldowns[CRUSHING_BLOW].unlocked = 1;
+            done = 1;
+            break;
+
+        case 'c': /* chemist */
+        case 'C':
+            h->items[MAIN_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, MAIN_HAND,
+                                           PIERCING);
+
+            h->cooldowns[USE_ITEM].unlocked = 1;
             done = 1;
             break;
 
@@ -894,12 +904,12 @@ decision_loop(hero_t * hero,
     size_t done = 0;
 
     for (;;) {
-        print_act_prompt();
+        print_act_prompt(hero);
 
         char act_var = safer_fgetc();
         clear_stdin();
 
-        clear_act_prompt();
+        clear_act_prompt(hero);
 
         switch (act_var) {
         case 'a':
@@ -929,7 +939,10 @@ decision_loop(hero_t * hero,
 
             break;
 
-        case 'i':
+        case 'u':
+            if (!hero->cooldowns[USE_ITEM].unlocked)
+                break;
+
             choose_inventory(hero, 0);
 
             move_cursor(1, 1);
@@ -938,7 +951,6 @@ decision_loop(hero_t * hero,
 
             print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
             print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
-
 
             break;
 

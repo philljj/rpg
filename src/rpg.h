@@ -52,13 +52,14 @@ typedef enum {
 typedef enum {
     THIEF           = 0, // cloth, leather, one hand
     BARBARIAN       = 1, // cloth, leather, two hand
-    SOLDIER         = 2, // mail, shield, one hand
-    PRIEST          = 3, // cloth, leather, restoration
-    DRUID           = 4, // cloth, leather, mail, shapeshifting
-    WIZARD          = 5, // cloth, leather, spell
-    NECROMANCER     = 6, // cloth, leather, mail, shadow life drain
-    KNIGHT          = 7, // plate, shield, one hand, or two hand
-    GEOMANCER       = 8, // mail, weapon imbues
+    CHEMIST         = 2, // cloth, leather, one hand
+    SOLDIER         = 3, // mail, shield, one hand
+    PRIEST          = 4, // cloth, leather, restoration
+    DRUID           = 5, // cloth, leather, mail, shapeshifting
+    WIZARD          = 6, // cloth, leather, spell
+    NECROMANCER     = 7, // cloth, leather, mail, shadow life drain
+    KNIGHT          = 8, // plate, shield, one hand, or two hand
+    GEOMANCER       = 9, // mail, weapon imbues
     RANDOM_HUMANOID = 99
 } humanoid_t;
 
