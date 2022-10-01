@@ -8,7 +8,6 @@
 #include "rpg.h"
 #include "combat_stats.h"
 
-
 
 size_t
 get_spell_cost(const element_t element,
@@ -33,8 +32,6 @@ get_spell_cost(const element_t element,
     return cost;
 }
 
-
-
 
 float
 get_melee_dmg(const hero_t * h,
@@ -133,7 +130,6 @@ get_melee_dmg(const hero_t * h,
     return dmg * smear;
 }
 
-
 
 float
 get_spell_dmg(const hero_t *  h,
@@ -185,7 +181,6 @@ get_spell_dmg(const hero_t *  h,
     return dmg * smear;
 }
 
-
 
 float
 get_spell_res(const hero_t *  h,
@@ -210,7 +205,6 @@ get_spell_res(const hero_t *  h,
     return mitigation;
 }
 
-
 
 float
 get_elem_pow(const spell_t * power,
@@ -256,7 +250,6 @@ get_elem_pow(const spell_t * power,
     return spell_power;
 }
 
-
 
 float
 get_elem_res(const spell_t * resist,
@@ -342,7 +335,6 @@ get_armor(const hero_t * h)
     return armor;
 }
 
-
 
 float
 get_dodge(const hero_t * h)
@@ -358,7 +350,6 @@ get_dodge(const hero_t * h)
     return dodge;
 }
 
-
 
 float
 get_spell_crit(const hero_t * h)
@@ -372,7 +363,6 @@ get_spell_crit(const hero_t * h)
     return crit;
 }
 
-
 
 size_t
 get_total_stat(const hero_t * h,

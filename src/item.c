@@ -19,7 +19,6 @@ static size_t gen_item_armor(const size_t level, armor_t armor_type);
 static void   gen_item_name(char * name, const armor_t armor_type,
                             const slot_t slot, weapon_t weapon_type);
 
-
 
 item_t
 gen_item(const char * name,
@@ -178,7 +177,6 @@ gen_item(const char * name,
     return item;
 }
 
-
 
 tier_t
 gen_item_tier(void)
@@ -199,7 +197,6 @@ gen_item_tier(void)
     }
 }
 
-
 
 void
 gen_item_name(char *         name,
@@ -351,7 +348,6 @@ gen_item_name(char *         name,
     return;
 }
 
-
 
 size_t
 gen_item_armor(const size_t level,
@@ -390,7 +386,6 @@ gen_item_armor(const size_t level,
     return final_armor;
 }
 
-
 
 void
 gen_item_set(hero_t *      h,
@@ -433,7 +428,6 @@ gen_item_set(hero_t *      h,
     return;
 }
 
-
 
 void
 spawn_item_drop(hero_t * h)
@@ -484,5 +478,3 @@ spawn_item_drop(hero_t * h)
 
     return;
 }
-
-

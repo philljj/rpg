@@ -28,7 +28,6 @@ static const char * spell_prompt = "\n"
                                    "    s: shadow bolt\n"
                                    "    u: non-elemental\n";
 
-
 
 void
 print_portrait(hero_t *     h,
@@ -55,7 +54,6 @@ print_portrait(hero_t *     h,
     return;
 }
 
-
 
 void
 move_cursor(const size_t i,
@@ -67,7 +65,6 @@ move_cursor(const size_t i,
     return;
 }
 
-
 
 void
 reset_cursor(void)
@@ -79,8 +76,6 @@ reset_cursor(void)
 }
 
 
-
-
 void
 set_cursor(void)
 {
@@ -90,7 +85,6 @@ set_cursor(void)
     return;
 }
 
-
 
 void
 del_line(void)
@@ -99,7 +93,6 @@ del_line(void)
     return;
 }
 
-
 
 void
 del_eof(void)
@@ -108,7 +101,6 @@ del_eof(void)
     return;
 }
 
-
 
 void
 clear_screen(void)
@@ -118,7 +110,6 @@ clear_screen(void)
     return;
 }
 
-
 
 void
 print_act_prompt(void)
@@ -128,7 +119,6 @@ print_act_prompt(void)
     return;
 }
 
-
 
 void
 clear_act_prompt(void)
@@ -150,7 +140,6 @@ clear_act_prompt(void)
     return;
 }
 
-
 
 void
 print_spell_prompt(const hero_t * h)
@@ -172,7 +161,6 @@ print_spell_prompt(const hero_t * h)
     return;
 }
 
-
 
 void
 print_heal_prompt(const hero_t * h)
@@ -188,7 +176,6 @@ print_heal_prompt(const hero_t * h)
     return;
 }
 
-
 
 void
 clear_heal_prompt(const hero_t * h)
@@ -205,7 +192,6 @@ clear_heal_prompt(const hero_t * h)
     return;
 }
 
-
 
 void
 print_attack_prompt(const hero_t * h)
@@ -233,7 +219,6 @@ print_attack_prompt(const hero_t * h)
     return;
 }
 
-
 
 void
 clear_spell_prompt(const hero_t * h)
@@ -267,7 +252,6 @@ clear_spell_prompt(const hero_t * h)
     return;
 }
 
-
 
 void
 clear_attack_prompt(const hero_t * h)
@@ -300,7 +284,6 @@ clear_attack_prompt(const hero_t * h)
     return;
 }
 
-
 
 void
 increment_row(void)
@@ -309,7 +292,6 @@ increment_row(void)
     return;
 }
 
-
 
 void
 check_row(void)
@@ -321,7 +303,6 @@ check_row(void)
     return;
 }
 
-
 
 void
 reset_row(void)

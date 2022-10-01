@@ -15,8 +15,6 @@ static uint16_t rand_buf[RAND_BUF_LEN];
 static int      urand_fd = 0;
 static size_t   pos = 0;
 
-
-
 void
 init_rand(void)
 {
@@ -39,8 +37,6 @@ init_rand(void)
 
     return;
 }
-
-
 
 size_t
 safer_rand(const size_t min,
@@ -81,8 +77,6 @@ again:
 
     return result;
 }
-
-
 
 static uint16_t
 get_rand_uint16(void)

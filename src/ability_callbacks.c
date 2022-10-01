@@ -15,7 +15,6 @@
 //       decide what to print. These functions
 //       should merely mutate hero/enemy state.
 
-
 
 static void
 weapon_attack_i(hero_t *       hero,
@@ -98,8 +97,6 @@ END_ATTACK:
 }
 
 
-
-
 void
 weapon_attack_cb(void * h,
                  void * e)
@@ -156,7 +153,6 @@ weapon_attack_cb(void * h,
     return;
 }
 
-
 
 size_t
 spell_attack_cb(void *          h,
@@ -224,7 +220,6 @@ spell_attack_cb(void *          h,
     return hp_reduced;
 }
 
-
 
 size_t
 spell_heal_cb(void *      h,
@@ -254,7 +249,6 @@ spell_heal_cb(void *      h,
     return heal_amnt;
 }
 
-
 
 void
 dragon_breath_cb(void * h,

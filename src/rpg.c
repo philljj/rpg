@@ -27,7 +27,6 @@
 #include "ability_callbacks.h"
 #include "color.h"
 
-
 
 int
 main(int    argc   __attribute__((unused)),
@@ -76,7 +75,6 @@ main(int    argc   __attribute__((unused)),
     return EXIT_SUCCESS;
 }
 
-
 
 hero_t
 roll_mob(const char * name,
@@ -99,7 +97,6 @@ roll_mob(const char * name,
     }
 }
 
-
 
 hero_t
 roll_hero(const size_t lvl)
@@ -268,7 +265,6 @@ roll_hero(const size_t lvl)
     return h;
 }
 
-
 
 hero_t
 roll_humanoid(const char * name,
@@ -375,8 +371,6 @@ roll_humanoid(const char * name,
 }
 
 
-
-
 hero_t
 roll_animal(const char * name,
             const size_t lvl)
@@ -462,7 +456,6 @@ roll_animal(const char * name,
     return h;
 }
 
-
 
 hero_t
 roll_dragon(const char * name,
@@ -565,7 +558,6 @@ roll_dragon(const char * name,
     return h;
 }
 
-
 
 void
 gen_base_stats(hero_t * h)
@@ -579,7 +571,6 @@ gen_base_stats(hero_t * h)
     return;
 }
 
-
 
 void
 level_up(hero_t * h)
@@ -661,7 +652,6 @@ level_up(hero_t * h)
     return;
 }
 
-
 
 void
 set_hp_mp(hero_t * h)
@@ -685,7 +675,6 @@ set_hp_mp(hero_t * h)
     return;
 }
 
-
 
 size_t
 get_max_hp(const hero_t * h)
@@ -704,7 +693,6 @@ get_max_hp(const hero_t * h)
     return (HP_MULT * stamina);
 }
 
-
 
 size_t
 get_max_mp(const hero_t * h)
@@ -723,7 +711,6 @@ get_max_mp(const hero_t * h)
     return (MP_MULT * wisdom);
 }
 
-
 
 size_t
 restore_hp(hero_t *     h,
@@ -738,7 +725,6 @@ restore_hp(hero_t *     h,
     return (h->hp - old_hp);
 }
 
-
 
 size_t
 restore_mp(hero_t *     h,
@@ -753,7 +739,6 @@ restore_mp(hero_t *     h,
     return (h->mp - old_mp);
 }
 
-
 
 size_t
 spend_hp(hero_t *     h,
@@ -765,7 +750,7 @@ spend_hp(hero_t *     h,
 
     return (h->hp < hp);
 }
-
+
 
 size_t
 spend_mp(hero_t *     h,
@@ -778,7 +763,6 @@ spend_mp(hero_t *     h,
     return (h->mp < mp);
 }
 
-
 
 void
 spirit_regen(hero_t * hero)
@@ -799,8 +783,6 @@ spirit_regen(hero_t * hero)
     return;
 }
 
-
-
 
 void
 battle(hero_t * hero,
@@ -906,7 +888,6 @@ battle(hero_t * hero,
     return;
 }
 
-
 
 void
 decision_loop(hero_t * hero,
@@ -974,7 +955,6 @@ decision_loop(hero_t * hero,
     return;
 }
 
-
 
 size_t
 choose_spell(hero_t * hero,
@@ -1038,7 +1018,6 @@ choose_spell(hero_t * hero,
     return status;
 }
 
-
 
 size_t
 choose_heal(hero_t * hero)
@@ -1071,7 +1050,6 @@ choose_heal(hero_t * hero)
     return status;
 }
 
-
 
 size_t
 choose_attack(hero_t * hero,
@@ -1125,7 +1103,6 @@ choose_attack(hero_t * hero,
     return status;
 }
 
-
 
 size_t
 attack_barrier(size_t   final_dmg,
@@ -1152,7 +1129,6 @@ attack_barrier(size_t   final_dmg,
     return hp_reduced;
 }
 
-
 
 void
 print_hero(hero_t *     h,
@@ -1233,7 +1209,6 @@ print_hero(hero_t *     h,
     return;
 }
 
-
 
 void
 print_equip(hero_t * h)
@@ -1285,7 +1260,6 @@ print_equip(hero_t * h)
     return;
 }
 
-
 
 void
 print_fld(const char * what,
@@ -1298,7 +1272,6 @@ print_fld(const char * what,
     return;
 }
 
-
 
 const char *
 slot_to_str(slot_t s)
@@ -1349,7 +1322,6 @@ slot_to_str(slot_t s)
     }
 }
 
-
 
 const char *
 armor_to_str(armor_t a)
@@ -1368,7 +1340,6 @@ armor_to_str(armor_t a)
     }
 }
 
-
 
 const char *
 mob_to_str(const mob_t m)
@@ -1388,7 +1359,6 @@ mob_to_str(const mob_t m)
     }
 }
 
-
 
 const char *
 elem_to_str(char *          str,
@@ -1446,7 +1416,6 @@ elem_to_str(char *          str,
     return str;
 }
 
-
 
 item_t *
 add_to_inventory(hero_t * h,
@@ -1473,7 +1442,6 @@ add_to_inventory(hero_t * h,
     return new_item;
 }
 
-
 
 void
 choose_inventory(hero_t * h,
@@ -1569,7 +1537,6 @@ choose_inventory(hero_t * h,
     return;
 }
 
-
 
 void
 equip_from_inventory(hero_t *  h,
@@ -1654,7 +1621,6 @@ equip_from_inventory(hero_t *  h,
     return;
 }
 
-
 
 void
 use_from_inventory(hero_t *  h,
@@ -1720,7 +1686,6 @@ use_from_inventory(hero_t *  h,
     return;
 }
 
-
 
 void
 print_inventory(const hero_t * h,
@@ -1779,7 +1744,6 @@ print_inventory(const hero_t * h,
     return;
 }
 
-
 
 void
 print_selection(const hero_t * h,
@@ -1831,7 +1795,6 @@ print_selection(const hero_t * h,
     return;
 }
 
-
 
 void
 print_inventory_prompt(void)
@@ -1852,7 +1815,6 @@ print_inventory_prompt(void)
     return;
 }
 
-
 
 void
 sprintf_item_name(char *         name,
@@ -1880,8 +1842,6 @@ sprintf_item_name(char *         name,
     return;
 }
 
-
-
 
 stats_t
 get_total_stats(const hero_t * h)
@@ -1911,7 +1871,6 @@ get_total_stats(const hero_t * h)
     return stats;
 }
 
-
 
 size_t
 fire_strike(hero_t * hero,
@@ -1934,7 +1893,6 @@ fire_strike(hero_t * hero,
     return fire_dmg;
 }
 
-
 
 size_t
 shadow_bolt(hero_t * hero,
@@ -2224,7 +2182,6 @@ shield_bash(hero_t * hero,
     return hp_reduced;
 }
 
-
 
 size_t
 fireball(hero_t * hero,
@@ -2328,7 +2285,6 @@ insect_swarm(hero_t * hero,
     return dot_amnt;
 }
 
-
 
 size_t
 time_mage_regen(hero_t * hero)
@@ -2368,7 +2324,6 @@ time_mage_regen(hero_t * hero)
     return heal_amnt;
 }
 
-
 
 void
 apply_debuff(hero_t *          enemy,
@@ -2407,7 +2362,6 @@ apply_debuff(hero_t *          enemy,
     return;
 }
 
-
 
 size_t
 process_debuffs(hero_t * enemy)
@@ -2426,7 +2380,6 @@ process_debuffs(hero_t * enemy)
     return status;
 }
 
-
 
 void
 process_debuffs_i(hero_t *   enemy,
@@ -2474,7 +2427,6 @@ process_debuffs_i(hero_t *   enemy,
     return;
 }
 
-
 
 void
 clear_debuffs(hero_t * enemy)
@@ -2490,7 +2442,6 @@ clear_debuffs(hero_t * enemy)
     return;
 }
 
-
 
 void
 process_cooldowns(hero_t * h)
@@ -2504,7 +2455,6 @@ process_cooldowns(hero_t * h)
     return;
 }
 
-
 
 void
 reset_cooldowns(hero_t * h)
@@ -2516,7 +2466,6 @@ reset_cooldowns(hero_t * h)
     return;
 }
 
-
 
 char
 safer_fgetc(void)
@@ -2531,7 +2480,6 @@ safer_fgetc(void)
     return '\0';
 }
 
-
 
 void
 clear_stdin(void)
