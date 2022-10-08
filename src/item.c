@@ -468,13 +468,13 @@ spawn_item_drop(hero_t * h)
 
     choose_inventory(h, &new_item);
 
-    move_cursor(1, 1);
-    del_eof();
+    rpg_tui_move_cursor(1, 1);
+    rpg_tui_del_eof();
 
     set_hp_mp_bp(h);
 
-    move_cursor(1, 1);
-    del_eof();
+    rpg_tui_move_cursor(1, 1);
+    rpg_tui_del_eof();
 
     return;
 }

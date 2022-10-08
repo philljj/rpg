@@ -22,9 +22,9 @@ static const char * spell_prompt = "\n"
 
 
 void
-print_portrait(hero_t *     h,
-               const size_t i,
-               const size_t j)
+rpg_tui_print_portrait(hero_t *     h,
+                       const size_t i,
+                       const size_t j)
 {
     // i: row
     // j: column
@@ -41,15 +41,15 @@ print_portrait(hero_t *     h,
     printf("\033[%zu;%zuH spr:   %zu    ",       i + 9, j, stats.spr);
     printf("\033[%zu;%zuH armor: %zu    ",       i + 10, j, get_armor(h));
 
-    set_cursor();
+    rpg_tui_set_cursor();
 
     return;
 }
 
 
 void
-move_cursor(const size_t i,
-            const size_t j)
+rpg_tui_move_cursor(const size_t i,
+                    const size_t j)
 {
     // Move to i'th row, j'th column.
     printf("\033[%zu;%zuH ", i, j);
@@ -57,54 +57,84 @@ move_cursor(const size_t i,
     return;
 }
 
-
 void
-reset_cursor(void)
+rpg_tui_reset_cursor(void)
 {
     // Reset to battle text starting position.
     printf("\033[%d;%dH ", BATTLE_TXT_ROW, BATTLE_TXT_ROW);
-
     return;
 }
 
-
 void
-set_cursor(void)
+rpg_tui_set_cursor(void)
 {
     // Set cursor to current offset from battle text starting position.
     printf("\033[%zu;%zuH\r", BATTLE_TXT_ROW + row_, BATTLE_TXT_ROW + col_);
-
     return;
 }
 
-
 void
-del_line(void)
+rpg_tui_del_line(void)
 {
     printf("\33[2K");
     return;
 }
 
-
 void
-del_eof(void)
+rpg_tui_del_eof(void)
 {
     printf("\r\033[J");
     return;
 }
 
-
 void
-clear_screen(void)
+rpg_tui_clear_screen(void)
 {
-    move_cursor(1, 1);
-    del_eof();
+    rpg_tui_move_cursor(1, 1);
+    rpg_tui_del_eof();
     return;
+}
+
+char
+rpg_tui_safer_fgetc(void)
+{
+    int n = fgetc(stdin);
+
+    if (n > 0 && n < 255) {
+        return (char) n;
+    }
+
+    clearerr(stdin);
+    return '\0';
 }
 
 
 void
-print_act_prompt(const hero_t * h)
+rpg_tui_clear_stdin(void)
+{
+    size_t done = 0;
+
+    for (;;) {
+        char n = rpg_tui_safer_fgetc();
+
+        switch (n) {
+        case '\0':
+        case '\n':
+            done = 1;
+            break;
+
+        default:
+            break;
+        }
+
+        if (done) { break; }
+    }
+
+    return;
+}
+
+void
+rpg_tui_print_act_prompt(const hero_t * h)
 {
     printf("\n");
     printf("  choose melee attack:\n");
@@ -121,7 +151,7 @@ print_act_prompt(const hero_t * h)
 
 
 void
-clear_act_prompt(const hero_t * h)
+rpg_tui_clear_act_prompt(const hero_t * h)
 {
     printf("\r\033[A");
     printf("\r\033[A");
@@ -135,14 +165,14 @@ clear_act_prompt(const hero_t * h)
 
     // Not sure why this one extra needed.
     printf("\r\033[A");
-    del_eof();
+    rpg_tui_del_eof();
 
     return;
 }
 
 
 void
-print_spell_prompt(const hero_t * h)
+rpg_tui_print_spell_prompt(const hero_t * h)
 {
     printf("%s", spell_prompt);
 
@@ -163,7 +193,7 @@ print_spell_prompt(const hero_t * h)
 
 
 void
-print_heal_prompt(const hero_t * h)
+rpg_tui_print_heal_prompt(const hero_t * h)
 {
     printf("\n");
     printf("  choose heal spell:\n");
@@ -177,7 +207,7 @@ print_heal_prompt(const hero_t * h)
 }
 
 void
-clear_heal_prompt(const hero_t * h)
+rpg_tui_clear_heal_prompt(const hero_t * h)
 {
     printf("\r\033[A");
     printf("\r\033[A");
@@ -193,7 +223,7 @@ clear_heal_prompt(const hero_t * h)
 
 
 void
-print_attack_prompt(const hero_t * h)
+rpg_tui_print_attack_prompt(const hero_t * h)
 {
     printf("\n");
     printf("  choose melee attack:\n");
@@ -220,7 +250,7 @@ print_attack_prompt(const hero_t * h)
 
 
 void
-clear_spell_prompt(const hero_t * h)
+rpg_tui_clear_spell_prompt(const hero_t * h)
 {
     const char * ptr = spell_prompt;
 
@@ -246,14 +276,14 @@ clear_spell_prompt(const hero_t * h)
 
     // Not sure why this one extra needed.
     printf("\r\033[A");
-    del_eof();
+    rpg_tui_del_eof();
 
     return;
 }
 
 
 void
-clear_attack_prompt(const hero_t * h)
+rpg_tui_clear_attack_prompt(const hero_t * h)
 {
     printf("\r\033[A");
     printf("\r\033[A");
@@ -278,14 +308,14 @@ clear_attack_prompt(const hero_t * h)
 
     // Not sure why this one extra needed.
     printf("\r\033[A");
-    del_eof();
+    rpg_tui_del_eof();
 
     return;
 }
 
 
 void
-increment_row(void)
+rpg_tui_increment_row(void)
 {
     ++row_;
     return;
@@ -293,7 +323,7 @@ increment_row(void)
 
 
 void
-check_row(void)
+rpg_tui_check_row(void)
 {
     if (row_ >= MAX_BATTLE_TXT_LINES) {
         row_ = 0;
@@ -304,7 +334,169 @@ check_row(void)
 
 
 void
-reset_row(void)
+rpg_tui_reset_row(void)
 {
     row_ = 0;
 }
+
+void
+rpg_tui_print_inventory_prompt(void)
+{
+    size_t row = INV_PROMPT_ROW;
+    size_t col = INV_PROMPT_COL;
+
+    printf("\033[%zu;%zuH Actions:", row, col);
+
+    printf("\033[%zu;%zuH a: add to inventory", row + 3, col);
+    printf("\033[%zu;%zuH d: throw away selected item", row + 4, col);
+    printf("\033[%zu;%zuH e: equip selected item", row + 5, col);
+    printf("\033[%zu;%zuH u: use selected item", row + 6, col);
+    printf("\033[%zu;%zuH q: quit", row + 7, col);
+
+    fflush(stdout);
+
+    return;
+}
+
+static void
+print_fld(const char * what,
+          const size_t amnt)
+{
+    if (amnt) {
+        printf("%s %zu\n", what, amnt);
+    }
+
+    return;
+}
+
+void
+rpg_tui_print_hero(hero_t *     h,
+                   const size_t verbosity)
+{
+    printf("name: %s\n", h->name);
+    printf("level: %zu\n", h->level);
+    printf("hp:    %zu / %zu\n", h->hp, get_max_hp(h));
+    printf("mp:    %zu / %zu\n", h->mp, get_max_mp(h));
+    printf("xp:    %zu\n", h->xp);
+
+    if (verbosity <= 1) {
+        printf("\n");
+        return;
+    }
+
+    printf("\n");
+    printf("base attributes\n");
+    printf("  sta: %zu\n", h->base.sta);
+    printf("  str: %zu\n", h->base.str);
+    printf("  agi: %zu\n", h->base.agi);
+    printf("  wis: %zu\n", h->base.wis);
+    printf("  spr: %zu\n", h->base.spr);
+
+    if (verbosity == 2) {
+        printf("\n");
+        return;
+    }
+
+    printf("\n");
+    printf("spell power\n");
+    printf("  fire:   %zu\n", h->power.fire);
+    printf("  frost:  %zu\n", h->power.frost);
+    printf("  shadow: %zu\n", h->power.shadow);
+    printf("\n");
+    printf("spell resist\n");
+    printf("  fire:   %zu\n", h->resist.fire);
+    printf("  frost:  %zu\n", h->resist.frost);
+    printf("  shadow: %zu\n", h->resist.shadow);
+    printf("\n");
+
+    if (verbosity == 3) {
+        printf("\n");
+        return;
+    }
+
+    printf("equipment\n");
+
+    for (size_t i = 0; i < MAX_ITEMS; ++i) {
+        if (h->items[i].slot == NO_ITEM) {
+            continue;
+        }
+
+        printf("  %s: %s\n", slot_to_str(i), h->items[i].name);
+        print_fld("  armor:", h->items[i].armor);
+        print_fld("    sta:", h->items[i].attr.sta);
+        print_fld("    str:", h->items[i].attr.str);
+        print_fld("    agi:", h->items[i].attr.agi);
+        print_fld("    wis:", h->items[i].attr.wis);
+        print_fld("    spr:", h->items[i].attr.spr);
+
+        printf("\n");
+        printf("spell power\n");
+        printf("  fire:   %zu\n", h->items[i].power.fire);
+        printf("  frost:  %zu\n", h->items[i].power.frost);
+        printf("  shadow: %zu\n", h->items[i].power.shadow);
+        printf("\n");
+        printf("spell resist\n");
+        printf("  fire:   %zu\n", h->items[i].resist.fire);
+        printf("  frost:  %zu\n", h->items[i].resist.frost);
+        printf("  shadow: %zu\n", h->items[i].resist.shadow);
+        printf("\n");
+    }
+
+    printf("\n");
+
+
+    return;
+}
+
+
+void
+rpg_tui_print_equip(hero_t * h)
+{
+    printf("name:  %s\n", h->name);
+    printf("level: %zu\n", h->level);
+    printf("hp:    %zu / %zu\n", h->hp, get_max_hp(h));
+    printf("mp:    %zu / %zu\n", h->mp, get_max_mp(h));
+    printf("\n");
+    printf("sta:   %zu\n", h->base.sta);
+    printf("str:   %zu\n", h->base.str);
+    printf("agi:   %zu\n", h->base.agi);
+    printf("wis:   %zu\n", h->base.wis);
+    printf("spr:   %zu\n", h->base.spr);
+    printf("\n");
+    printf("armor: %zu (%.2f%% melee dmg reduction)\n", get_armor(h),
+           100 - (100 * get_mitigation(h)));
+    printf("dodge:      %.2f%%\n", 0.01 * get_dodge(h));
+    printf("\n");
+    printf("attack dmg:\n");
+    printf(" main hand: %.2f\n", get_melee_dmg(h, &h->items[MAIN_HAND], NO_SMEAR));
+    printf("  off hand: %.2f\n", get_melee_dmg(h, &h->items[OFF_HAND], NO_SMEAR));
+    printf("  two hand: %.2f\n", get_melee_dmg(h, &h->items[TWO_HAND], NO_SMEAR));
+    printf("spell dmg:\n");
+    printf("  fire:     %.2f\n", get_spell_dmg(h, FIRE, NO_SMEAR));
+    printf("  frost:    %.2f\n", get_spell_dmg(h, FROST, NO_SMEAR));
+    printf("  shadow:   %.2f\n", get_spell_dmg(h, SHADOW, NO_SMEAR));
+    printf("  non-elem: %.2f\n", get_spell_dmg(h, NON_ELEM, NO_SMEAR));
+
+    printf("\n");
+    printf("equipment\n");
+
+    char pretty_name[MAX_NAME_LEN + 1];
+
+    for (size_t i = 0; i < MAX_ITEMS; ++i) {
+        if (h->items[i].slot == NO_ITEM) {
+            printf("  %s:        \n", slot_to_str(i));
+
+            continue;
+        }
+
+        sprintf_item_name(pretty_name, &h->items[i]);
+        printf("  %s: \e[1;32m%s\e[0m (%s)\n", slot_to_str(i), pretty_name,
+               armor_to_str(h->items[i].armor_type));
+    }
+
+    fflush(stdout);
+
+    return;
+}
+
+

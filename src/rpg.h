@@ -42,26 +42,42 @@ typedef enum {
     RANDOM_ANIMAL = 99
 } animal_t;
 
-/* Druid: Nature and Shadow damage
- * Geomancer: Nature and Fire and Frost damage
- * Necromancer: Shadow and Frost damage
- * Priest: Holy damage
- * Wizard: Fire, Frost, and non-elemental damage.
- * Time Mage: Non-Elemental damage (meteor). */
+/* current classes ideas:
+ *   Druid: Nature and Shadow damage
+ *   Geomancer: Nature and Fire and Frost damage
+ *   Necromancer: Shadow and Frost damage
+ *   Priest: Holy damage
+ *   Wizard: Fire, Frost, and non-elemental damage.
+ *   Time Mage: Non-Elemental damage (meteor).
+ *
+ *
+ *
+ *
+ * todo: a job system like this?
+ *      squire   chemist    thief
+ *     /            |         \
+ *  knight        cleric      ninja
+ *  |              /     \
+ * barbarian    w mage  b mage
+ *
+ *
+ *
+ */
 
 typedef enum {
-    THIEF           = 0, // cloth, leather, one hand
-    BARBARIAN       = 1, // cloth, leather, two hand
-    CHEMIST         = 2, // cloth, leather, one hand
-    SOLDIER         = 3, // mail, shield, one hand
-    PRIEST          = 4, // cloth, leather, restoration
-    DRUID           = 5, // cloth, leather, mail, shapeshifting
-    WIZARD          = 6, // cloth, leather, spell
-    NECROMANCER     = 7, // cloth, leather, mail, shadow life drain
-    KNIGHT          = 8, // plate, shield, one hand, or two hand
-    GEOMANCER       = 9, // mail, weapon imbues
+    SQUIRE          =  0, // cloth - mail, main hand
+    THIEF           =  1, // cloth, leather, main hand
+    BARBARIAN       =  2, // cloth, leather, two hand
+    CHEMIST         =  3, // cloth, leather, main hand, staff
+    SOLDIER         =  4, // mail, shield, one hand
+    PRIEST          =  5, // cloth, leather, restoration
+    DRUID           =  6, // cloth, leather, mail, shapeshifting
+    WIZARD          =  7, // cloth, leather, spell
+    NECROMANCER     =  8, // cloth, leather, mail, shadow life drain
+    KNIGHT          =  9, // plate, shield, one hand, or two hand
+    GEOMANCER       = 10, // mail, weapon imbues
     RANDOM_HUMANOID = 99
-} humanoid_t;
+} job_t;
 
 typedef enum {
     WHELPLING     = 0,
@@ -133,12 +149,12 @@ struct hero_t {
 typedef struct hero_t hero_t;
 
 // Basic mob gen functions.
-hero_t * roll_player_hero(hero_t * h, const size_t lvl);
-hero_t * roll_mob(hero_t * h, const char * name, const size_t lvl, mob_t m);
-hero_t * roll_humanoid(hero_t * hero, const char * name, const size_t lvl);
-hero_t * roll_animal(hero_t * hero, const char * name, const size_t lvl);
-hero_t * roll_dragon(hero_t * hero, const char * name, const size_t lvl);
-void   gen_base_stats(hero_t * h);
+hero_t * rpg_roll_player(hero_t * h, const size_t lvl);
+hero_t * rpg_roll_mob(hero_t * h, const char * name, const size_t lvl, mob_t m);
+hero_t * rpg_roll_humanoid(hero_t * hero, const char * name, const size_t lvl);
+hero_t * rpg_roll_animal(hero_t * hero, const char * name, const size_t lvl);
+hero_t * rpg_roll_dragon(hero_t * hero, const char * name, const size_t lvl);
+void     rpg_gen_base_stats(hero_t * h);
 
 stats_t get_total_stats(const hero_t * h);
 
@@ -148,10 +164,6 @@ size_t get_max_hp(const hero_t * h);
 size_t get_max_mp(const hero_t * h);
 
 // Print functions.
-char         safer_fgetc(void);
-void         clear_stdin(void);
-void         print_hero(hero_t * h, const size_t verbosity);
-void         print_equip(hero_t * h);
 item_t *     add_to_inventory(hero_t * h, item_t * new_item);
 void         choose_inventory(hero_t * h, item_t * new_item);
 void         equip_from_inventory(hero_t * h, const int selection,
@@ -162,9 +174,7 @@ void         print_inventory(const hero_t * h, const int selected,
                              const item_t * new_item);
 void         print_selection(const hero_t * h, const int selected,
                              const item_t * new_item);
-void         print_inventory_prompt(void);
 void         sprintf_item_name(char * name, const item_t * item);
-void         print_fld(const char * what, const size_t amnt);
 const char * slot_to_str(slot_t s);
 const char * armor_to_str(armor_t a);
 const char * mob_to_str(const mob_t m);

@@ -36,22 +36,22 @@ main(int    argc   __attribute__((unused)),
     assert(HOT < MAX_DEBUFFS);
 
     init_rand();
-    clear_screen();
+    rpg_tui_clear_screen();
 
     size_t h_lvl = 2;
     size_t e_lvl = 1;
 
     hero_t hero;
     hero_t enemy;
-    roll_player_hero(&hero, h_lvl);
+    rpg_roll_player(&hero, h_lvl);
 
-    print_portrait(&hero, PORTRAIT_ROW, PORTRAIT_COL);
+    rpg_tui_print_portrait(&hero, PORTRAIT_ROW, PORTRAIT_COL);
 
     hero.xp_req = 1;
 
     for (;;) {
-        roll_mob(&enemy, 0, e_lvl, RANDOM_M);
-        print_portrait(&enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
+        rpg_roll_mob(&enemy, 0, e_lvl, RANDOM_M);
+        rpg_tui_print_portrait(&enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
         battle(&hero, &enemy);
 
@@ -83,53 +83,42 @@ main(int    argc   __attribute__((unused)),
 
 
 hero_t *
-roll_mob(hero_t *     hero,
-         const char * name,
-         const size_t lvl,
-         mob_t        mob)
+rpg_roll_mob(hero_t *     hero,
+             const char * name,
+             const size_t lvl,
+             mob_t        mob)
 {
     if (mob == RANDOM_M)
         mob = safer_rand(0, DRAGON);
 
     switch (mob) {
     case HUMANOID:
-        return roll_humanoid(hero, name, lvl);
+        return rpg_roll_humanoid(hero, name, lvl);
     case ANIMAL:
-        return roll_animal(hero, name, lvl);
+        return rpg_roll_animal(hero, name, lvl);
     case DRAGON:
-        return roll_dragon(hero, name, lvl);
+        return rpg_roll_dragon(hero, name, lvl);
     default:
-        return roll_humanoid(hero, name, lvl);
+        return rpg_roll_humanoid(hero, name, lvl);
     }
 }
 
-
-hero_t *
-roll_player_hero(hero_t *     h,
-                 const size_t lvl)
+static void
+rpg_input_name(hero_t * h)
 {
-    memset(h, 0, sizeof(hero_t));
+    int  done = 0;
+    char choice = '\0';
 
-    h->gold = 10;
-    h->attack = weapon_attack_cb;
-    h->spell = spell_attack_cb;
-    h->heal = spell_heal_cb;
-
-    h->level = lvl ? lvl : 1;
-
-    gen_base_stats(h);
-
-    for (;;) {
+    while (!done) {
         memset(h->name, '\0', MAX_NAME_LEN);
         strcat(h->name, prefix_list[safer_rand(0, MAX_PREFIX - 1)]);
         strcat(h->name, suffix_list[safer_rand(0, MAX_SUFFIX - 1)]);
 
-        clear_screen();
+        rpg_tui_clear_screen();
         printf("character name: %s\n", h->name);
         printf("y to accept, n to regenerate\n");
 
-        size_t done = 0;
-        char   choice = safer_fgetc();
+        choice = rpg_tui_safer_fgetc();
 
         switch (choice) {
         case 'y':
@@ -143,12 +132,30 @@ roll_player_hero(hero_t *     h,
             break;
         }
 
-        clear_stdin();
-
-        if (done) { break; }
+        rpg_tui_clear_stdin();
     }
 
-    clear_screen();
+    rpg_tui_clear_screen();
+
+    return;
+}
+
+hero_t *
+rpg_roll_player(hero_t *     h,
+                const size_t lvl)
+{
+    memset(h, 0, sizeof(hero_t));
+
+    h->gold = 10;
+    h->attack = weapon_attack_cb;
+    h->spell = spell_attack_cb;
+    h->heal = spell_heal_cb;
+
+    h->level = lvl ? lvl : 1;
+
+    rpg_gen_base_stats(h);
+
+    rpg_input_name(h);
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
         h->items[i].slot = NO_ITEM;
@@ -159,7 +166,7 @@ roll_player_hero(hero_t *     h,
     }
 
     for (;;) {
-        clear_screen();
+        rpg_tui_clear_screen();
         printf("choose specialization:\n");
         printf("  t - Thief. Unlocks back stab.\n");
         printf("  c - Chemist. Unlocks Use / Throw / Mix items.\n");
@@ -173,7 +180,7 @@ roll_player_hero(hero_t *     h,
         printf("  g - Geomancer. Unlocks elemental attack.\n");
 
         size_t done = 0;
-        char   choice = safer_fgetc();
+        char   choice = rpg_tui_safer_fgetc();
 
         switch (choice) {
         case 't': /* thief */
@@ -267,12 +274,12 @@ roll_player_hero(hero_t *     h,
             break;
         }
 
-        clear_stdin();
+        rpg_tui_clear_stdin();
 
         if (done) { break; }
     }
 
-    clear_screen();
+    rpg_tui_clear_screen();
 
     gen_item_set(h, h->level, COMMON, CLOTH);
 
@@ -283,9 +290,9 @@ roll_player_hero(hero_t *     h,
 
 
 hero_t *
-roll_humanoid(hero_t *     h,
-              const char * name,
-              const size_t lvl)
+rpg_roll_humanoid(hero_t *     h,
+                  const char * name,
+                  const size_t lvl)
 {
     memset(h, 0, sizeof(hero_t));
 
@@ -300,7 +307,7 @@ roll_humanoid(hero_t *     h,
 
     h->level = lvl ? lvl : 1;
 
-    gen_base_stats(h);
+    rpg_gen_base_stats(h);
 
     if (name && *name) {
         strcpy(h->name, name);
@@ -389,9 +396,9 @@ roll_humanoid(hero_t *     h,
 
 
 hero_t *
-roll_animal(hero_t *     h,
-            const char * name,
-            const size_t lvl)
+rpg_roll_animal(hero_t *     h,
+                const char * name,
+                const size_t lvl)
 {
     memset(h, 0, sizeof(hero_t));
 
@@ -428,7 +435,7 @@ roll_animal(hero_t *     h,
 
     h->level = lvl ? lvl : 1;
 
-    gen_base_stats(h);
+    rpg_gen_base_stats(h);
 
     switch (h->sub_type) {
     case BEAR:
@@ -475,9 +482,9 @@ roll_animal(hero_t *     h,
 
 
 hero_t *
-roll_dragon(hero_t *     h,
-            const char * name,
-            const size_t lvl)
+rpg_roll_dragon(hero_t *     h,
+                const char * name,
+                const size_t lvl)
 {
     memset(h, 0, sizeof(hero_t));
 
@@ -521,7 +528,7 @@ roll_dragon(hero_t *     h,
 
     h->level = lvl ? lvl : 1;
 
-    gen_base_stats(h);
+    rpg_gen_base_stats(h);
 
     switch (h->sub_type) {
     case FOREST_DRAGON:
@@ -578,7 +585,7 @@ roll_dragon(hero_t *     h,
 
 
 void
-gen_base_stats(hero_t * h)
+rpg_gen_base_stats(hero_t * h)
 {
     h->base.sta = h->level + BASE_STAT + (safer_rand(0, BASE_STAT_VAR));
     h->base.str = h->level + BASE_STAT + (safer_rand(0, BASE_STAT_VAR));
@@ -600,10 +607,10 @@ level_up(hero_t * h)
     ++(h->base.wis);
     ++(h->base.spr);
 
-    print_portrait(h, PORTRAIT_ROW, PORTRAIT_COL);
+    rpg_tui_print_portrait(h, PORTRAIT_ROW, PORTRAIT_COL);
 
-    reset_cursor();
-    del_eof();
+    rpg_tui_reset_cursor();
+    rpg_tui_del_eof();
 
     {
         // Spend a bonus point.
@@ -619,7 +626,7 @@ level_up(hero_t * h)
         size_t done = 0;
 
         for (;;) {
-            char choice = safer_fgetc();
+            char choice = rpg_tui_safer_fgetc();
 
             switch (choice) {
             case '1':
@@ -652,7 +659,7 @@ level_up(hero_t * h)
                 break;
             }
 
-            clear_stdin();
+            rpg_tui_clear_stdin();
 
             if (done) { break; }
         }
@@ -662,10 +669,10 @@ level_up(hero_t * h)
 
     set_hp_mp_bp(h);
 
-    print_portrait(h, PORTRAIT_ROW, PORTRAIT_COL);
+    rpg_tui_print_portrait(h, PORTRAIT_ROW, PORTRAIT_COL);
 
-    reset_cursor();
-    del_eof();
+    rpg_tui_reset_cursor();
+    rpg_tui_del_eof();
 
     return;
 }
@@ -794,8 +801,8 @@ void
 battle(hero_t * hero,
        hero_t * enemy)
 {
-    print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
-    print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
+    rpg_tui_print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
+    rpg_tui_print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
     size_t regen_ctr = 0;
 
@@ -805,10 +812,10 @@ battle(hero_t * hero,
         // hero's turn.
         process_cooldowns(hero);
         decision_loop(hero, enemy);
-        increment_row();
+        rpg_tui_increment_row();
 
-        print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
-        print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
+        rpg_tui_print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
+        rpg_tui_print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
         usleep(USLEEP_INTERVAL);
 
@@ -818,8 +825,8 @@ battle(hero_t * hero,
 
         // hero's debuffs.
         if (process_debuffs(hero)) {
-            print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
-            print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
+            rpg_tui_print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
+            rpg_tui_print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
             usleep(USLEEP_INTERVAL);
 
@@ -831,10 +838,10 @@ battle(hero_t * hero,
         // enemy's turn.
         process_cooldowns(enemy);
         enemy->attack(enemy, hero);
-        increment_row();
+        rpg_tui_increment_row();
 
-        print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
-        print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
+        rpg_tui_print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
+        rpg_tui_print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
         usleep(USLEEP_INTERVAL);
 
@@ -844,8 +851,8 @@ battle(hero_t * hero,
 
         // enemy's debuffs.
         if (process_debuffs(enemy)) {
-            print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
-            print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
+            rpg_tui_print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
+            rpg_tui_print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
             usleep(USLEEP_INTERVAL);
 
@@ -857,25 +864,25 @@ battle(hero_t * hero,
         if (regen_ctr == REGEN_ROUND) {
             spirit_regen(hero);
             spirit_regen(enemy);
-            increment_row();
+            rpg_tui_increment_row();
 
-            increment_row();
-            increment_row();
-            print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
-            print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
+            rpg_tui_increment_row();
+            rpg_tui_increment_row();
+            rpg_tui_print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
+            rpg_tui_print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
             regen_ctr = 0;
 
             usleep(USLEEP_INTERVAL);
         }
 
-        check_row();
+        rpg_tui_check_row();
 
-        set_cursor();
-        del_eof();
+        rpg_tui_set_cursor();
+        rpg_tui_del_eof();
     }
 
-    reset_row();
+    rpg_tui_reset_row();
     reset_cooldowns(hero);
     clear_debuffs(hero);
 
@@ -888,8 +895,8 @@ battle(hero_t * hero,
 
     sleep(1);
 
-    reset_cursor();
-    del_eof();
+    rpg_tui_reset_cursor();
+    rpg_tui_del_eof();
 
     usleep(USLEEP_INTERVAL);
 
@@ -904,12 +911,12 @@ decision_loop(hero_t * hero,
     size_t done = 0;
 
     for (;;) {
-        print_act_prompt(hero);
+        rpg_tui_print_act_prompt(hero);
 
-        char act_var = safer_fgetc();
-        clear_stdin();
+        char act_var = rpg_tui_safer_fgetc();
+        rpg_tui_clear_stdin();
 
-        clear_act_prompt(hero);
+        rpg_tui_clear_act_prompt(hero);
 
         switch (act_var) {
         case 'a':
@@ -945,12 +952,12 @@ decision_loop(hero_t * hero,
 
             choose_inventory(hero, 0);
 
-            move_cursor(1, 1);
-            del_eof();
-            reset_cursor();
+            rpg_tui_move_cursor(1, 1);
+            rpg_tui_del_eof();
+            rpg_tui_reset_cursor();
 
-            print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
-            print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
+            rpg_tui_print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
+            rpg_tui_print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
             break;
 
@@ -974,12 +981,12 @@ choose_spell(hero_t * hero,
     size_t status;
 
     for (;;) {
-        print_spell_prompt(hero);
+        rpg_tui_print_spell_prompt(hero);
 
-        char act_var = safer_fgetc();
-        clear_stdin();
+        char act_var = rpg_tui_safer_fgetc();
+        rpg_tui_clear_stdin();
 
-        clear_spell_prompt(hero);
+        rpg_tui_clear_spell_prompt(hero);
 
         switch (act_var) {
         case 'f':
@@ -1036,12 +1043,12 @@ choose_heal(hero_t * hero)
     size_t status;
 
     for (;;) {
-        print_heal_prompt(hero);
+        rpg_tui_print_heal_prompt(hero);
 
-        char act_var = safer_fgetc();
-        clear_stdin();
+        char act_var = rpg_tui_safer_fgetc();
+        rpg_tui_clear_stdin();
 
-        clear_heal_prompt(hero);
+        rpg_tui_clear_heal_prompt(hero);
 
         switch (act_var) {
         case 'h':
@@ -1069,12 +1076,12 @@ choose_attack(hero_t * hero,
     size_t status;
 
     for (;;) {
-        print_attack_prompt(hero);
+        rpg_tui_print_attack_prompt(hero);
 
-        char act_var = safer_fgetc();
-        clear_stdin();
+        char act_var = rpg_tui_safer_fgetc();
+        rpg_tui_clear_stdin();
 
-        clear_attack_prompt(hero);
+        rpg_tui_clear_attack_prompt(hero);
 
         switch (act_var) {
         case 'a':
@@ -1137,149 +1144,6 @@ attack_barrier(size_t   final_dmg,
     }
 
     return hp_reduced;
-}
-
-
-void
-print_hero(hero_t *     h,
-           const size_t verbosity)
-{
-    printf("name: %s\n", h->name);
-    printf("level: %zu\n", h->level);
-    printf("hp:    %zu / %zu\n", h->hp, get_max_hp(h));
-    printf("mp:    %zu / %zu\n", h->mp, get_max_mp(h));
-    printf("xp:    %zu\n", h->xp);
-
-    if (verbosity <= 1) {
-        printf("\n");
-        return;
-    }
-
-    printf("\n");
-    printf("base attributes\n");
-    printf("  sta: %zu\n", h->base.sta);
-    printf("  str: %zu\n", h->base.str);
-    printf("  agi: %zu\n", h->base.agi);
-    printf("  wis: %zu\n", h->base.wis);
-    printf("  spr: %zu\n", h->base.spr);
-
-    if (verbosity == 2) {
-        printf("\n");
-        return;
-    }
-
-    printf("\n");
-    printf("spell power\n");
-    printf("  fire:   %zu\n", h->power.fire);
-    printf("  frost:  %zu\n", h->power.frost);
-    printf("  shadow: %zu\n", h->power.shadow);
-    printf("\n");
-    printf("spell resist\n");
-    printf("  fire:   %zu\n", h->resist.fire);
-    printf("  frost:  %zu\n", h->resist.frost);
-    printf("  shadow: %zu\n", h->resist.shadow);
-    printf("\n");
-
-    if (verbosity == 3) {
-        printf("\n");
-        return;
-    }
-
-    printf("equipment\n");
-
-    for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (h->items[i].slot == NO_ITEM) {
-            continue;
-        }
-
-        printf("  %s: %s\n", slot_to_str(i), h->items[i].name);
-        print_fld("  armor:", h->items[i].armor);
-        print_fld("    sta:", h->items[i].attr.sta);
-        print_fld("    str:", h->items[i].attr.str);
-        print_fld("    agi:", h->items[i].attr.agi);
-        print_fld("    wis:", h->items[i].attr.wis);
-        print_fld("    spr:", h->items[i].attr.spr);
-
-        printf("\n");
-        printf("spell power\n");
-        printf("  fire:   %zu\n", h->items[i].power.fire);
-        printf("  frost:  %zu\n", h->items[i].power.frost);
-        printf("  shadow: %zu\n", h->items[i].power.shadow);
-        printf("\n");
-        printf("spell resist\n");
-        printf("  fire:   %zu\n", h->items[i].resist.fire);
-        printf("  frost:  %zu\n", h->items[i].resist.frost);
-        printf("  shadow: %zu\n", h->items[i].resist.shadow);
-        printf("\n");
-    }
-
-    printf("\n");
-
-
-    return;
-}
-
-
-void
-print_equip(hero_t * h)
-{
-    printf("name:  %s\n", h->name);
-    printf("level: %zu\n", h->level);
-    printf("hp:    %zu / %zu\n", h->hp, get_max_hp(h));
-    printf("mp:    %zu / %zu\n", h->mp, get_max_mp(h));
-    printf("\n");
-    printf("sta:   %zu\n", h->base.sta);
-    printf("str:   %zu\n", h->base.str);
-    printf("agi:   %zu\n", h->base.agi);
-    printf("wis:   %zu\n", h->base.wis);
-    printf("spr:   %zu\n", h->base.spr);
-    printf("\n");
-    printf("armor: %zu (%.2f%% melee dmg reduction)\n", get_armor(h),
-           100 - (100 * get_mitigation(h)));
-    printf("dodge:      %.2f%%\n", 0.01 * get_dodge(h));
-    printf("\n");
-    printf("attack dmg:\n");
-    printf(" main hand: %.2f\n", get_melee_dmg(h, &h->items[MAIN_HAND], NO_SMEAR));
-    printf("  off hand: %.2f\n", get_melee_dmg(h, &h->items[OFF_HAND], NO_SMEAR));
-    printf("  two hand: %.2f\n", get_melee_dmg(h, &h->items[TWO_HAND], NO_SMEAR));
-    printf("spell dmg:\n");
-    printf("  fire:     %.2f\n", get_spell_dmg(h, FIRE, NO_SMEAR));
-    printf("  frost:    %.2f\n", get_spell_dmg(h, FROST, NO_SMEAR));
-    printf("  shadow:   %.2f\n", get_spell_dmg(h, SHADOW, NO_SMEAR));
-    printf("  non-elem: %.2f\n", get_spell_dmg(h, NON_ELEM, NO_SMEAR));
-
-    printf("\n");
-    printf("equipment\n");
-
-    char pretty_name[MAX_NAME_LEN + 1];
-
-    for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (h->items[i].slot == NO_ITEM) {
-            printf("  %s:        \n", slot_to_str(i));
-
-            continue;
-        }
-
-        sprintf_item_name(pretty_name, &h->items[i]);
-        printf("  %s: \e[1;32m%s\e[0m (%s)\n", slot_to_str(i), pretty_name,
-               armor_to_str(h->items[i].armor_type));
-    }
-
-    fflush(stdout);
-
-    return;
-}
-
-
-void
-print_fld(const char * what,
-          const size_t amnt)
-{
-    if (amnt) {
-        printf("%s %zu\n", what, amnt);
-    }
-
-    return;
 }
 
 
@@ -1462,21 +1326,21 @@ choose_inventory(hero_t * h,
     size_t done = 0;
     int    selection = -1;
 
-    move_cursor(1, 1);
-    del_eof();
+    rpg_tui_move_cursor(1, 1);
+    rpg_tui_del_eof();
 
-    print_equip(h);
+    rpg_tui_print_equip(h);
     print_selection(h, selection, new_item);
     print_inventory(h, selection, new_item);
 
     for (;;) {
-        print_inventory_prompt();
+        rpg_tui_print_inventory_prompt();
 
-        char act_var = safer_fgetc();
+        char act_var = rpg_tui_safer_fgetc();
 
         if (act_var == '\033') {
-            safer_fgetc();
-            act_var = safer_fgetc();
+            rpg_tui_safer_fgetc();
+            act_var = rpg_tui_safer_fgetc();
 
             switch (act_var) {
             case 'A':
@@ -1532,14 +1396,14 @@ choose_inventory(hero_t * h,
             }
         }
 
-        move_cursor(1, 1);
-        del_eof();
+        rpg_tui_move_cursor(1, 1);
+        rpg_tui_del_eof();
 
-        print_equip(h);
+        rpg_tui_print_equip(h);
         print_selection(h, selection, new_item);
         print_inventory(h, selection, new_item);
 
-        clear_stdin();
+        rpg_tui_clear_stdin();
 
         if (done) { break; }
     }
@@ -1806,25 +1670,6 @@ print_selection(const hero_t * h,
 }
 
 
-void
-print_inventory_prompt(void)
-{
-    size_t row = INV_PROMPT_ROW;
-    size_t col = INV_PROMPT_COL;
-
-    printf("\033[%zu;%zuH Actions:", row, col);
-
-    printf("\033[%zu;%zuH a: add to inventory", row + 3, col);
-    printf("\033[%zu;%zuH d: throw away selected item", row + 4, col);
-    printf("\033[%zu;%zuH e: equip selected item", row + 5, col);
-    printf("\033[%zu;%zuH u: use selected item", row + 6, col);
-    printf("\033[%zu;%zuH q: quit", row + 7, col);
-
-    fflush(stdout);
-
-    return;
-}
-
 
 void
 sprintf_item_name(char *         name,
@@ -1982,7 +1827,7 @@ back_stab(hero_t * hero,
     char elem_str[64];
     printf("back stab hit %s for %zu %s damage\n",
            enemy->name, hp_reduced, elem_to_str(elem_str, MELEE));
-    increment_row();
+    rpg_tui_increment_row();
 
     hero->cooldowns[BACK_STAB].rounds = 4;
 
@@ -2047,7 +1892,7 @@ crushing_blow(hero_t * hero,
     char elem_str[64];
     printf("crushing blow hit %s for %zu %s damage\n",
            enemy->name, hp_reduced, elem_to_str(elem_str, MELEE));
-    increment_row();
+    rpg_tui_increment_row();
 
     hero->cooldowns[CRUSHING_BLOW].rounds = 4;
 
@@ -2100,7 +1945,7 @@ drain_touch(hero_t * hero,
 
         printf("drain touch hit %s for %zu %s hp damage\n",
                enemy->name, hp_reduced, elem_to_str(elem_str, SHADOW));
-        increment_row();
+        rpg_tui_increment_row();
 
         total_dmg += hp_reduced;
 
@@ -2110,7 +1955,7 @@ drain_touch(hero_t * hero,
 
         size_t n = restore_hp(hero, hp_reduced);
         printf("drain touch healed %s for %zu hp\n", hero->name, n);
-        increment_row();
+        rpg_tui_increment_row();
 
         if (total_dmg && weaps[i] == TWO_HAND) {
             // A 2 hand weapon was equipped.
@@ -2183,7 +2028,7 @@ shield_bash(hero_t * hero,
 
     printf("shield bash hit %s for %zu hp damage\n",
            enemy->name, hp_reduced);
-    increment_row();
+    rpg_tui_increment_row();
 
     apply_debuff(enemy, "shield bash", STUN, NON_ELEM, 0, 1, 0);
 
@@ -2252,7 +2097,7 @@ holy_smite(hero_t * hero,
 
     printf("smite hit %s for %zu hp damage\n",
            enemy->name, hp_reduced);
-    increment_row();
+    rpg_tui_increment_row();
 
     hero->cooldowns[HOLY_SMITE].rounds = 2;
 
@@ -2431,7 +2276,7 @@ process_debuffs_i(hero_t *   enemy,
         break;
     }
 
-    increment_row();
+    rpg_tui_increment_row();
     debuff->rounds--;
 
     return;
@@ -2477,40 +2322,3 @@ reset_cooldowns(hero_t * h)
 }
 
 
-char
-safer_fgetc(void)
-{
-    int n = fgetc(stdin);
-
-    if (n > 0 && n < 255) {
-        return (char) n;
-    }
-
-    clearerr(stdin);
-    return '\0';
-}
-
-
-void
-clear_stdin(void)
-{
-    size_t done = 0;
-
-    for (;;) {
-        char n = safer_fgetc();
-
-        switch (n) {
-        case '\0':
-        case '\n':
-            done = 1;
-            break;
-
-        default:
-            break;
-        }
-
-        if (done) { break; }
-    }
-
-    return;
-}

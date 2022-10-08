@@ -91,7 +91,7 @@ weapon_attack_i(hero_t *       hero,
     }
 
 END_ATTACK:
-    increment_row();
+    rpg_tui_increment_row();
 
     return;
 }
@@ -244,7 +244,7 @@ spell_heal_cb(void *      h,
     size_t n = restore_hp(hero, (size_t) heal_amnt);
 
     printf("%s healed %s for %zu hp\n", what, hero->name, n);
-    increment_row();
+    rpg_tui_increment_row();
 
     return heal_amnt;
 }
@@ -268,7 +268,7 @@ dragon_breath_cb(void * h,
     printf("dragon breath burned %s for %zu hp damage\n",
            enemy->name, hp_reduced);
 
-    increment_row();
+    rpg_tui_increment_row();
 
     return;
 }
