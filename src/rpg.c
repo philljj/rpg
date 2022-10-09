@@ -1,12 +1,13 @@
-// TODO: 1. This needs serious cleanup. Refactor and clean this up.
-//       2. need way to track temporary buffs/debuffs.
+// TODO: 1. Implement Time Gauge. Weapon and job type modifies speed
+//          gauge fills. E.g. Knight with Dagger in mh fills time gauge
+//          faster than with Sword in mh.
+//       2. Job based weapon/armor restrictions.
 //       3. gold? vendors, can accumulate gold?
 //       4. talent points? specializations?
 //       5. Boss fights every 5 levels? Must beat boss to unlock
-//          next span of levels?
-//       6. Unlockable special abilities. Druids shadeshift to animal
-//          forms, but can't equip plate or weapons to use this ability.
-//       7. Weather.
+//       6  next span of levels?
+//       7. Unlockable special abilities.
+//       8. Weather.
 #include <assert.h>
 #include <math.h>
 #include <stdint.h>
@@ -30,6 +31,8 @@
 #include <curses.h>
 
 static char msg_buf[256];
+static char prefix[256];
+static char postfix[256];
 
 int
 main(int    argc   __attribute__((unused)),
@@ -169,8 +172,6 @@ rpg_roll_player(hero_t *     h,
 
     h->gold = 10;
     h->attack = weapon_attack_cb;
-    h->spell = spell_attack_cb;
-    h->heal = spell_heal_cb;
 
     h->level = lvl ? lvl : 1;
 
@@ -323,8 +324,6 @@ rpg_roll_humanoid(hero_t *     h,
     h->gold = safer_rand(5, 15);
     h->xp_rew = safer_rand(1, 3);
     h->attack = weapon_attack_cb;
-    h->spell = spell_attack_cb;
-    h->heal = spell_heal_cb;
 
     h->level = lvl ? lvl : 1;
 
@@ -938,16 +937,6 @@ decision_loop(hero_t * hero,
 
             break;
 
-        case 'h':
-            if (choose_heal(hero)) {
-                done = 1;
-            }
-            else {
-                printw("%s is out of mana\n", hero->name);
-            }
-
-            break;
-
         case 'u':
             if (!hero->cooldowns[USE_ITEM].unlocked)
                 break;
@@ -994,21 +983,6 @@ choose_spell(hero_t * hero,
             done = 1;
             break;
 
-        case 'i':
-            status = hero->spell(hero, enemy, FROST, 1, 1);
-            done = 1;
-            break;
-
-        case 's':
-            status = shadow_bolt(hero, enemy);
-            done = 1;
-            break;
-
-        case 'u':
-            status = hero->spell(hero, enemy, NON_ELEM, 1, 1);
-            done = 1;
-            break;
-
         case 'b':
             status = fireball(hero, enemy);
             done = 1;
@@ -1021,37 +995,6 @@ choose_spell(hero_t * hero,
 
         case 'n':
             status = insect_swarm(hero, enemy);
-            done = 1;
-            break;
-
-        default:
-            printw("error: invalid input %c\n", act_var);
-            break;
-        }
-
-        if (done) { break; }
-    }
-
-    return status;
-}
-
-
-size_t
-choose_heal(hero_t * hero)
-{
-    size_t done = 0;
-    size_t status;
-
-    for (;;) {
-        rpg_tui_print_heal_prompt(hero, ACTION_ROW, ACTION_COL);
-
-        char act_var = rpg_tui_safer_fgetc();
-
-        rpg_tui_clear_heal_prompt(hero, ACTION_ROW, ACTION_COL);
-
-        switch (act_var) {
-        case 'h':
-            status = hero->heal(hero, 1.0, 1.0);
             done = 1;
             break;
 
@@ -1732,7 +1675,8 @@ fire_strike(hero_t * hero,
 {
     // Burn the target for X fire damage, and then 10%
     // additional damage on the target's next turn.
-    size_t fire_dmg = hero->spell(hero, enemy, FIRE, 1, 1);
+    size_t fire_dmg = 10;
+    (void) hero;
 
     if (!fire_dmg) {
         // Spell cast failed for some reason.
@@ -1747,27 +1691,6 @@ fire_strike(hero_t * hero,
     return fire_dmg;
 }
 
-
-size_t
-shadow_bolt(hero_t * hero,
-            hero_t * enemy)
-{
-    // Blast the target for X shadow damage, and heals the caster
-    // for 10% of damage delt.
-    size_t shadow_dmg = hero->spell(hero, enemy, SHADOW, 1, 1);
-
-    if (!shadow_dmg) {
-        // Spell cast failed for some reason.
-        return 0;
-    }
-    // else, spell succeeded. Heal caster.
-
-    float heal_amnt = 0.1 * ((float) shadow_dmg);
-
-    restore_hp(hero, heal_amnt);
-
-    return shadow_dmg;
-}
 
 /* Main hand piercing attack that does 3-4x damage, depending
  * on weapon quality. Requires MAIN_HAND of PIERCING type. */
@@ -1825,9 +1748,8 @@ back_stab(hero_t * hero,
 
     size_t hp_reduced = attack_barrier(final_dmg, enemy);
 
-    char elem_str[64];
-    sprintf(msg_buf, "back stab hit %s for %zu %s damage\n",
-            enemy->name, hp_reduced, elem_to_str(elem_str, MELEE));
+    sprintf(msg_buf, "back stab hit %s for %zu melee damage\n",
+            enemy->name, hp_reduced);
     rpg_tui_print_combat_txt(msg_buf);
 
     hero->cooldowns[BACK_STAB].rounds = 4;
@@ -1890,9 +1812,9 @@ crushing_blow(hero_t * hero,
     // Reduce enemy barrier and health.
     size_t hp_reduced = attack_barrier(final_dmg, enemy);
 
-    char elem_str[64];
-    printf("crushing blow hit %s for %zu %s damage\n",
-           enemy->name, hp_reduced, elem_to_str(elem_str, MELEE));
+    sprintf(msg_buf, "crushing blow hit %s for %zu melee damage\n",
+            enemy->name, hp_reduced);
+    rpg_tui_print_combat_txt(msg_buf);
 
     hero->cooldowns[CRUSHING_BLOW].rounds = 4;
 
@@ -1915,8 +1837,9 @@ drain_touch(hero_t * hero,
     }
 
     if (hero->cooldowns[DRAIN_TOUCH].rounds) {
-        printf("drain touch on cooldown for %zu rounds\n",
+        sprintf(msg_buf, "drain touch on cooldown for %zu rounds\n",
                hero->cooldowns[DRAIN_TOUCH].rounds);
+        rpg_tui_print_combat_txt(msg_buf);
         return 0;
     }
 
@@ -1941,10 +1864,10 @@ drain_touch(hero_t * hero,
         size_t final_dmg = (size_t) floor(drain_touch_dmg);
         size_t hp_reduced = attack_barrier(final_dmg, enemy);
 
-        char elem_str[64];
-
-        printf("drain touch hit %s for %zu %s hp damage\n",
-               enemy->name, hp_reduced, elem_to_str(elem_str, SHADOW));
+        sprintf(prefix, "drain touch hit %s for %zu ",
+               enemy->name, hp_reduced);
+        sprintf(postfix, " damage\n");
+        rpg_tui_print_combat_color_txt(prefix, SHADOW, postfix);
 
         total_dmg += hp_reduced;
 
@@ -1953,7 +1876,8 @@ drain_touch(hero_t * hero,
         if (hp_reduced == 0) { ++hp_reduced; }
 
         size_t n = restore_hp(hero, hp_reduced);
-        printf("drain touch healed %s for %zu hp\n", hero->name, n);
+        sprintf(msg_buf, "drain touch healed %s for %zu hp\n", hero->name, n);
+        rpg_tui_print_combat_txt(msg_buf);
 
         if (total_dmg && weaps[i] == TWO_HAND) {
             // A 2 hand weapon was equipped.
@@ -1980,14 +1904,16 @@ shield_bash(hero_t * hero,
     }
 
     if (hero->cooldowns[SHIELD_BASH].rounds) {
-        printf("shield bash on cooldown for %zu rounds\n",
+        sprintf(msg_buf, "shield bash on cooldown for %zu rounds\n",
                hero->cooldowns[SHIELD_BASH].rounds);
+        rpg_tui_print_combat_txt(msg_buf);
         return 0;
     }
 
     if (hero->items[OFF_HAND].slot == NO_ITEM ||
         hero->items[OFF_HAND].armor_type != SHIELD) {
-        printf("no shield equipped\n");
+        sprintf(msg_buf, "no shield equipped\n");
+        rpg_tui_print_combat_txt(msg_buf);
         return 0;
     }
 
@@ -2024,8 +1950,9 @@ shield_bash(hero_t * hero,
     // Reduce enemy barrier and health.
     size_t hp_reduced = attack_barrier(final_dmg, enemy);
 
-    printf("shield bash hit %s for %zu hp damage\n",
-           enemy->name, hp_reduced);
+    sprintf(msg_buf, "shield bash hit %s for %zu hp damage\n",
+            enemy->name, hp_reduced);
+    rpg_tui_print_combat_txt(msg_buf);
 
     apply_debuff(enemy, "shield bash", STUN, NON_ELEM, 0, 1, 0);
 
@@ -2054,7 +1981,7 @@ fireball(hero_t * hero,
         return 0;
     }
 
-    size_t fire_dmg = hero->spell(hero, enemy, FIRE, 1.5, 1);
+    size_t fire_dmg = 20;
 
     if (!fire_dmg) {
         // Spell cast failed for some reason.
@@ -2085,16 +2012,18 @@ holy_smite(hero_t * hero,
     }
 
     if (hero->cooldowns[HOLY_SMITE].rounds) {
-        printf("holy smite on cooldown for %zu rounds\n",
+        sprintf(msg_buf, "holy smite on cooldown for %zu rounds\n",
                hero->cooldowns[HOLY_SMITE].rounds);
+        rpg_tui_print_combat_txt(msg_buf);
         return 0;
     }
 
     size_t total_spirit = get_total_stat(hero, SPIRIT);
     size_t hp_reduced = attack_barrier(total_spirit, enemy);
 
-    printf("smite hit %s for %zu hp damage\n",
-           enemy->name, hp_reduced);
+    sprintf(msg_buf, "smite hit %s for %zu hp damage\n",
+            enemy->name, hp_reduced);
+    rpg_tui_print_combat_txt(msg_buf);
 
     hero->cooldowns[HOLY_SMITE].rounds = 2;
 
@@ -2118,8 +2047,9 @@ insect_swarm(hero_t * hero,
     }
 
     if (hero->cooldowns[INSECT_SWARM].rounds) {
-        printf("insect swarm on cooldown for %zu rounds\n",
-               hero->cooldowns[HOLY_SMITE].rounds);
+        sprintf(msg_buf, "insect swarm on cooldown for %zu rounds\n",
+                hero->cooldowns[HOLY_SMITE].rounds);
+        rpg_tui_print_combat_txt(msg_buf);
         return 0;
     }
 
@@ -2150,12 +2080,13 @@ time_mage_regen(hero_t * hero)
     }
 
     if (hero->cooldowns[REGEN].rounds) {
-        printf("regen on cooldown for %zu rounds\n",
-               hero->cooldowns[REGEN].rounds);
+        sprintf(msg_buf, "regen on cooldown for %zu rounds\n",
+                hero->cooldowns[REGEN].rounds);
+        rpg_tui_print_combat_txt(msg_buf);
         return 0;
     }
 
-    size_t heal_amnt = hero->heal(hero, 0.5, 0.5);
+    size_t heal_amnt = 10;
 
     if (!heal_amnt) {
         // Spell cast failed for some reason.

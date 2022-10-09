@@ -123,9 +123,8 @@ rpg_tui_print_act_prompt(const hero_t * h,
     mvprintw(i + 0, j, "\n");
     mvprintw(i + 1, j, "  choose action:\n");
     mvprintw(i + 2, j, "    a: attack\n");
-    mvprintw(i + 3, j, "    s: spell\n");
-    mvprintw(i + 4, j, "    d: defend\n");
-    mvprintw(i + 5, j, "    h: heal\n");
+    mvprintw(i + 3, j, "    s: job primary\n");
+    mvprintw(i + 4, j, "    d: job secondary\n");
 
     if (h->cooldowns[USE_ITEM].unlocked)
         mvprintw(i + 6, j, "    u: use item\n");

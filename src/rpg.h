@@ -56,13 +56,31 @@ typedef enum {
  *
  *
  * todo: a job system like this?
- *      squire   chemist    thief
- *     /            |         \
- *  knight        cleric      ninja
- *  |              /     \
- * barbarian    w mage  b mage
+ *
+ * t0.             Hunter             Squire           Chemist       Thief
+ *                  /   \               /                  |          |  \
+ * t1.   (Cleric)  /     |       ---- Knight        --- Cleric ---    |   \   (Knight)
+ *            \   /      |     /     /       \    /       |        \  |    \   /
+ * t2.        Druid   Geomancr  Berserkr  MysticKnt   WhiteMage    Monk    Ninja
  *
  *
+ *
+ * squire: 1h-2h, mail. Well rounded. Folk medicine heal ability..
+ * knight: 1h-2h, plate. Highest potential attack and defense.
+ * barbarian: 2h weapon, leather, debuffs enemy (demo shout, fear, etc)
+ * mystic knight: 1h-2h, mail, enchants sword.
+ *
+ * chemist: 1h, leather. use/throw/mix items.
+ * cleric: 1h, leather. party buffer. pray (small aoe heal and buff)
+ *
+ * thief: 1h, leather. Steal Gold.
+ * ninja: 2 swords, leather. Unlocks 2 swords passive.
+ *
+ *
+ *
+ *
+ *
+ * Squire:
  *
  */
 
@@ -109,14 +127,19 @@ typedef enum {
 #endif
 
 
-typedef void   (*rpg_attack_func_t)(void * hero, void * enemy);
-typedef size_t (*rpg_spell_func_t)(void * hero, void * enemy,
-                                   const element_t elem,
-                                   const float dmg_mult,
-                                   const float mp_mult);
-typedef void   (*rpg_defend_func_t)(void * hero);
-typedef size_t (*rpg_heal_func_t)(void * hero, const float dmg_mult,
-                                  const float mp_mult);
+typedef void (*rpg_attack_func_t)(void * hero, void * enemy);
+/* These callbacks were ultimately not that useful...
+ * Might be more usefult to have attack, primary, secondary callbacks,
+ * which are set when you choose your job.
+ *
+ *   typedef size_t (*rpg_spell_func_t)(void * hero, void * enemy,
+ *                                      const element_t elem,
+ *                                      const float dmg_mult,
+ *                                      const float mp_mult);
+ *   typedef void   (*rpg_defend_func_t)(void * hero);
+ *   typedef size_t (*rpg_heal_func_t)(void * hero, const float dmg_mult,
+ *                                  const float mp_mult);
+ */
 
 struct hero_t {
     // Common fields.
@@ -143,9 +166,13 @@ struct hero_t {
     item_t   inventory[MAX_INVENTORY];
     // Callbacks.
     rpg_attack_func_t attack;
-    rpg_spell_func_t  spell;
-    rpg_defend_func_t defend;
-    rpg_heal_func_t   heal;
+    rpg_attack_func_t job_pri;
+    rpg_attack_func_t job_sec;
+    /* See callback note above.
+     *   rpg_spell_func_t  spell;
+     *   rpg_defend_func_t defend;
+     *   rpg_heal_func_t   heal;
+     */
 };
 
 typedef struct hero_t hero_t;
@@ -187,7 +214,6 @@ void   decision_loop(hero_t * hero, hero_t * enemy);
 void   spirit_regen(hero_t * h);
 size_t choose_attack(hero_t * hero, hero_t * enemy);
 size_t choose_spell(hero_t * hero, hero_t * enemy);
-size_t choose_heal(hero_t * hero);
 void   battle(hero_t * hero, hero_t * enemy);
 
 size_t back_stab(hero_t * hero, hero_t * enemy);
@@ -211,7 +237,6 @@ void   reset_cooldowns(hero_t * h);
 
 // Spell abilities.
 size_t fire_strike(hero_t * hero, hero_t * enemy);
-size_t shadow_bolt(hero_t * hero, hero_t * enemy);
 size_t fireball(hero_t * hero, hero_t * enemy);
 size_t attack_barrier(size_t final_dmg, hero_t * enemy);
 size_t time_mage_regen(hero_t * h);

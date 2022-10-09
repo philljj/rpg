@@ -16,6 +16,8 @@
 //       should merely mutate hero/enemy state.
 
 static char msg_buf[256];
+static char prefix[256];
+static char postfix[256];
 
 static void
 weapon_attack_i(hero_t *       hero,
@@ -79,9 +81,6 @@ weapon_attack_i(hero_t *       hero,
     // Reduce enemy barrier and health.
     size_t hp_reduced = attack_barrier(final_dmg, enemy);
 
-    // TODO: print overkill?
-
-    char elem_str[64];
     if (is_crit) {
         sprintf(msg_buf, "%s crit %s for %zu %s damage\n", hero->name,
                 enemy->name, hp_reduced, "melee");
@@ -179,8 +178,6 @@ spell_attack_cb(void *          h,
     float        resist;
     size_t       is_crit = 0;
     size_t       final_dmg;
-    char         elem_str[64];
-    const char * what = elem_to_str(elem_str, element);
 
     base_dmg = dmg_mult * get_spell_dmg(hero, element, STD_SMEAR);
 
@@ -209,13 +206,16 @@ spell_attack_cb(void *          h,
     size_t hp_reduced = final_dmg < enemy->hp ? final_dmg : enemy->hp;
 
     enemy->hp -= hp_reduced;
+    const char * what;
 
     if (is_crit) {
-        sprintf(msg_buf, "%s crit for %zu hp damage\n", what, hp_reduced);
+        sprintf(prefix, "%s crit for %zu hp damage\n", what, hp_reduced);
     }
     else {
-        sprintf(msg_buf, "%s hit for %zu hp damage\n", what, hp_reduced);
+        sprintf(prefix, "%s hit for %zu hp damage\n", what, hp_reduced);
     }
+
+    sprintf(postfix, "%s hit for %zu hp damage\n", what, hp_reduced);
 
     rpg_tui_print_combat_txt(msg_buf);
 
