@@ -22,5 +22,12 @@ dir_exists $run_dir
 dir_exists $bin_dir
 dir_exists $test_dir
 
-gcc -std=c99 -Wall -Wextra -lm src/*.c -o $bin_dir/rpg
-gcc -std=c99 -Wall -Wextra -lm test/test_rand.c src/safer_rand.c -o $test_dir/test_rand
+gcc -std=c99 -Wall -Wextra -lm -lncurses src/*.c -o $bin_dir/rpg || exit 1
+gcc -std=c99 -Wall -Wextra -lm test/test_rand.c src/safer_rand.c -o $test_dir/test_rand || exit 1
+
+if [ ! -f $bin_dir/rpg ]; then
+  echo "did not build $bin_dir/rpg for some reason"
+  exit 1
+fi
+
+echo "built rpg"

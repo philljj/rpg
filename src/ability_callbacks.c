@@ -15,6 +15,7 @@
 //       decide what to print. These functions
 //       should merely mutate hero/enemy state.
 
+static char msg_buf[256];
 
 static void
 weapon_attack_i(hero_t *       hero,
@@ -41,10 +42,10 @@ weapon_attack_i(hero_t *       hero,
         float trigger = safer_rand(0, 10000);
 
         if (dodge > trigger) {
-            printf("%s attacked %s and missed\n", hero->name,
-                   enemy->name);
-
-            goto END_ATTACK;
+            sprintf(msg_buf, "%s attacked %s and missed\n", hero->name,
+                    enemy->name);
+            rpg_tui_print_combat_txt(msg_buf);
+            return;
         }
     }
 
@@ -82,16 +83,15 @@ weapon_attack_i(hero_t *       hero,
 
     char elem_str[64];
     if (is_crit) {
-        printf("%s crit %s for %zu %s damage\n", hero->name,
-               enemy->name, hp_reduced, elem_to_str(elem_str, MELEE));
+        sprintf(msg_buf, "%s crit %s for %zu %s damage\n", hero->name,
+                enemy->name, hp_reduced, elem_to_str(elem_str, MELEE));
     }
     else {
-        printf("%s attacked %s for %zu %s damage\n", hero->name,
-               enemy->name, hp_reduced, elem_to_str(elem_str, MELEE));
+        sprintf(msg_buf, "%s attacked %s for %zu %s damage\n", hero->name,
+                enemy->name, hp_reduced, elem_to_str(elem_str, MELEE));
     }
 
-END_ATTACK:
-    rpg_tui_increment_row();
+    rpg_tui_print_combat_txt(msg_buf);
 
     return;
 }
@@ -211,11 +211,13 @@ spell_attack_cb(void *          h,
     enemy->hp -= hp_reduced;
 
     if (is_crit) {
-        printf("%s crit for %zu hp damage\n", what, hp_reduced);
+        sprintf(msg_buf, "%s crit for %zu hp damage\n", what, hp_reduced);
     }
     else {
-        printf("%s hit for %zu hp damage\n", what, hp_reduced);
+        sprintf(msg_buf, "%s hit for %zu hp damage\n", what, hp_reduced);
     }
+
+    rpg_tui_print_combat_txt(msg_buf);
 
     return hp_reduced;
 }
@@ -243,8 +245,8 @@ spell_heal_cb(void *      h,
 
     size_t n = restore_hp(hero, (size_t) heal_amnt);
 
-    printf("%s healed %s for %zu hp\n", what, hero->name, n);
-    rpg_tui_increment_row();
+    sprintf(msg_buf, "%s healed %s for %zu hp\n", what, hero->name, n);
+    rpg_tui_print_combat_txt(msg_buf);
 
     return heal_amnt;
 }
@@ -265,10 +267,9 @@ dragon_breath_cb(void * h,
 
     size_t hp_reduced = attack_barrier(base_dmg, enemy);
 
-    printf("dragon breath burned %s for %zu hp damage\n",
-           enemy->name, hp_reduced);
-
-    rpg_tui_increment_row();
+    sprintf(msg_buf, "dragon breath burned %s for %zu hp damage\n",
+            enemy->name, hp_reduced);
+    rpg_tui_print_combat_txt(msg_buf);
 
     return;
 }

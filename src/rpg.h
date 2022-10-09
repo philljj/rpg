@@ -17,6 +17,8 @@
 #define NEW_ITEM_COL         (96)
 #define PORTRAIT_ROW         (1)
 #define PORTRAIT_COL         (4)
+#define ACTION_ROW           (11)
+#define ACTION_COL           (4)
 #define SELECT_ROW           (1)
 #define SELECT_COL           (64)
 
