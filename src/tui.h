@@ -13,6 +13,8 @@ void rpg_tui_clear_spell_prompt(const hero_t * h, size_t i, size_t j);
 void rpg_tui_print_heal_prompt(const hero_t * h, size_t i, size_t j);
 void rpg_tui_clear_heal_prompt(const hero_t * h, size_t i, size_t j);
 void rpg_tui_print_combat_txt(const char * msg);
+void rpg_tui_print_combat_color_txt(const char * prefix, const element_t elem,
+                                    const char * postfix);
 void rpg_tui_increment_row(void);
 void rpg_tui_check_row(void);
 void rpg_tui_reset_row(void);

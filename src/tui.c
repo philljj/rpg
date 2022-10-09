@@ -15,7 +15,7 @@
 
 // Cursor row and column.
 static size_t row_ = 0;
-//static size_t col_ = 0;
+static size_t col_ = 0;
 
 // Prompts.
 static const char * spell_prompt = "\n"
@@ -326,6 +326,69 @@ rpg_tui_print_combat_txt(const char * msg)
     return;
 }
 
+void
+rpg_tui_print_color_txt(const element_t elem)
+{
+    char name[64];
+    switch (elem) {
+    case FIRE:
+        init_pair(1, COLOR_RED, COLOR_BLACK);
+        sprintf(name, "fire");
+        break;
+    case FROST:
+        init_pair(1, COLOR_BLUE, COLOR_BLACK);
+        sprintf(name, "frost");
+        break;
+    case SHADOW:
+        init_pair(1, COLOR_MAGENTA, COLOR_BLACK);
+        sprintf(name, "shadow");
+        break;
+    case NON_ELEM:
+        init_pair(1, COLOR_MAGENTA, COLOR_BLACK);
+        sprintf(name, "fire");
+        break;
+    case HOLY:
+        init_pair(1, COLOR_WHITE, COLOR_BLACK);
+        sprintf(name, "fire");
+        break;
+    case NATURE:
+        init_pair(1, COLOR_GREEN, COLOR_BLACK);
+        sprintf(name, "nature");
+        break;
+    case MELEE:
+        init_pair(1, COLOR_WHITE, COLOR_BLACK);
+        sprintf(name, "fire");
+        break;
+    case RESTORATION:
+        init_pair(1, COLOR_GREEN, COLOR_BLACK);
+        sprintf(name, "fire");
+        break;
+    }
+
+    attron(COLOR_PAIR(1));
+    mvprintw(COMBAT_TXT_ROW + row_, COMBAT_TXT_COL + col_, "%s", name);
+    attroff(COLOR_PAIR(1));
+    col_ += strlen(name);
+    return;
+}
+
+void
+rpg_tui_print_combat_color_txt(const char *    prefix,
+                               const element_t elem,
+                               const char *    postfix)
+{
+    // <spell> did <zu> <color element> damage to <target>
+    // <msg prefix> <color element> <msg postfix>
+    col_ = 0;
+    mvprintw(COMBAT_TXT_ROW + row_, COMBAT_TXT_COL, "%s", prefix);
+    col_ += strlen(prefix);
+    rpg_tui_print_color_txt(elem);
+    mvprintw(COMBAT_TXT_ROW + row_, COMBAT_TXT_COL + col_, "%s", postfix);
+    col_ += strlen(postfix);
+    rpg_tui_increment_row();
+    rpg_tui_check_row();
+    return;
+}
 
 void
 rpg_tui_print_inventory_prompt(void)

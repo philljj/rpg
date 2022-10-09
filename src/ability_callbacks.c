@@ -84,11 +84,11 @@ weapon_attack_i(hero_t *       hero,
     char elem_str[64];
     if (is_crit) {
         sprintf(msg_buf, "%s crit %s for %zu %s damage\n", hero->name,
-                enemy->name, hp_reduced, elem_to_str(elem_str, MELEE));
+                enemy->name, hp_reduced, "melee");
     }
     else {
         sprintf(msg_buf, "%s attacked %s for %zu %s damage\n", hero->name,
-                enemy->name, hp_reduced, elem_to_str(elem_str, MELEE));
+                enemy->name, hp_reduced, "melee");
     }
 
     rpg_tui_print_combat_txt(msg_buf);

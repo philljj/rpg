@@ -41,8 +41,9 @@ main(int    argc   __attribute__((unused)),
     timeout(-1);
     start_color();
 
-    init_pair(1, COLOR_RED, COLOR_BLACK);
-    attron(COLOR_PAIR(1));
+    //init_pair(1, COLOR_RED, COLOR_BLACK);
+    //attron(COLOR_PAIR(1));
+    //attroff(COLOR_PAIR(1));
 
     assert(REGEN < MAX_COOLDOWNS);
     assert(HOT < MAX_DEBUFFS);
@@ -2047,8 +2048,9 @@ fireball(hero_t * hero,
     }
 
     if (hero->cooldowns[FIREBALL].rounds) {
-        printf("fireball on cooldown for %zu rounds\n",
-               hero->cooldowns[FIREBALL].rounds);
+        sprintf(msg_buf, "fireball on cooldown for %zu rounds\n",
+                hero->cooldowns[FIREBALL].rounds);
+        rpg_tui_print_combat_txt(msg_buf);
         return 0;
     }
 
@@ -2245,7 +2247,8 @@ process_debuffs_i(hero_t *   enemy,
     element_t    element = debuff->element;
     float        amnt = debuff->amnt;
     size_t       dmg = 0;
-    char         elem_str[64];
+    char         prefix[256];
+    char         postfix[256];
 
     switch (db_status) {
     case DOT:
@@ -2253,17 +2256,22 @@ process_debuffs_i(hero_t *   enemy,
         // here, because mitigation was already taken into
         // account when the debuff was calculated and applied.
         dmg = attack_barrier(amnt, enemy);
-        printf("%s did %zu %s damage to %s\n", name, dmg,
-               elem_to_str(elem_str, element), enemy->name);
+        sprintf(prefix, "%s did %zu ", name, dmg);
+        sprintf(postfix, " damage to %s\n", enemy->name);
+        //sprintf(msg_buf, "%s did %zu %s damage to %s\n", name, dmg,
+        //        elem_to_str(elem_str, element), enemy->name);
+        rpg_tui_print_combat_color_txt(prefix, element, postfix);
         break;
 
     case STUN:
-        printf("%s stunned %s\n", name, enemy->name);
+        sprintf(msg_buf, "%s stunned %s\n", name, enemy->name);
+        rpg_tui_print_combat_txt(msg_buf);
         break;
 
     case HOT:
         dmg = restore_hp(enemy, (size_t) floor(amnt));
-        printf("%s did %zu healing to %s\n", name, dmg, enemy->name);
+        sprintf(msg_buf, "%s did %zu healing to %s\n", name, dmg, enemy->name);
+        rpg_tui_print_combat_txt(msg_buf);
         break;
 
     default:
