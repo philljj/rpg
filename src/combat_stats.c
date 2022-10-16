@@ -123,7 +123,7 @@ get_melee_dmg(const hero_t * h,
         smear = 1;
         break;
     case STD_SMEAR:
-        smear = 0.01 * (80 + (rpg_safer_rand(0, 40)));
+        smear = 0.01 * (80 + (rpg_rand(0, 40)));
         break;
     }
 
@@ -174,7 +174,7 @@ get_spell_dmg(const hero_t *  h,
         smear = 1;
         break;
     case STD_SMEAR:
-        smear = 0.01 * (80 + (rpg_safer_rand(0, 40)));
+        smear = 0.01 * (80 + (rpg_rand(0, 40)));
         break;
     }
 

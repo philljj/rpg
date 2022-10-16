@@ -80,17 +80,14 @@ rpg_tui_clear_screen(void)
 }
 
 char
-rpg_tui_safer_fgetc(void)
+rpg_tui_getch(void)
 {
-    //int n = fgetc(stdin);
     int n = getch();
 
-    if (n > 0 && n < 255) {
+    if (n > 0 && n < 255)
         return (char) n;
-    }
-
-    clearerr(stdin);
-    return '\0';
+    else
+        return '\0';
 }
 
 
@@ -100,7 +97,7 @@ rpg_tui_clear_stdin(void)
     size_t done = 0;
 
     for (;;) {
-        char n = rpg_tui_safer_fgetc();
+        char n = rpg_tui_getch();
 
         switch (n) {
         case '\0':
@@ -156,60 +153,6 @@ rpg_tui_clear_act_prompt(const hero_t * h,
 
     return;
 }
-
-void
-rpg_tui_print_attack_prompt(const hero_t * h,
-                            size_t         i,
-                            size_t         j)
-{
-    mvprintw(i++, j, "\n");
-    mvprintw(i++, j, "  choose melee attack:\n");
-    mvprintw(i++, j, "    a: weapon attack\n");
-
-    if (h->cooldowns[BACK_STAB].unlocked)
-        mvprintw(i++, j, "    b: back stab\n");
-
-    if (h->cooldowns[CRUSHING_BLOW].unlocked)
-        mvprintw(i++, j, "    c: crushing blow\n");
-
-    if (h->cooldowns[DRAIN_TOUCH].unlocked)
-        mvprintw(i++, j, "    d: drain touch\n");
-
-    if (h->cooldowns[SHIELD_BASH].unlocked)
-        mvprintw(i++, j, "    s: shield bash\n");
-
-    return;
-}
-
-void
-rpg_tui_clear_attack_prompt(const hero_t * h,
-                            size_t         i,
-                            size_t         j)
-{
-    move(i++, j); clrtoeol();
-    move(i++, j); clrtoeol();
-    move(i++, j); clrtoeol();
-
-    // Just iterate through list? Make it smarter?
-    if (h->cooldowns[BACK_STAB].unlocked)
-        move(i++, j); clrtoeol();
-
-    if (h->cooldowns[CRUSHING_BLOW].unlocked)
-        move(i++, j); clrtoeol();
-
-    if (h->cooldowns[DRAIN_TOUCH].unlocked)
-        move(i++, j); clrtoeol();
-
-    if (h->cooldowns[SHIELD_BASH].unlocked)
-        move(i++, j); clrtoeol();
-
-    // Not sure why this one extra needed.
-    move(i++, j); clrtoeol();
-    rpg_tui_del_eof();
-
-    return;
-}
-
 
 void
 rpg_tui_increment_row(void)

@@ -9,6 +9,7 @@
 //       7. Unlockable special abilities.
 //       8. Weather.
 #include <assert.h>
+#include <curses.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -27,8 +28,6 @@
 #include "ability_callbacks.h"
 #include "safer_rand.h"
 
-#include <curses.h>
-
 static char msg_buf[256];
 static char prefix[256];
 static char postfix[256];
@@ -37,23 +36,21 @@ int
 main(int    argc   __attribute__((unused)),
      char * argv[] __attribute__((unused)))
 {
+    hero_t hero;
+    hero_t enemy;
     size_t h_lvl = 2;
     size_t e_lvl = 1;
-
 
     assert(REGEN < MAX_COOLDOWNS);
     assert(HOT < MAX_DEBUFFS);
 
-    rpg_init_rand();
+    rpg_rand_init();
     rpg_tui_init();
 
-    hero_t hero;
-    hero_t enemy;
     rpg_roll_player(&hero, h_lvl);
 
     rpg_tui_print_portrait(&hero, PORTRAIT_ROW, PORTRAIT_COL);
 
-    hero.xp_req = 1;
 
     for (;;) {
         rpg_roll_mob(&enemy, 0, e_lvl, RANDOM_M);
@@ -75,9 +72,6 @@ main(int    argc   __attribute__((unused)),
 
         if (hero.xp >= hero.xp_req) {
             level_up(&hero);
-
-            hero.xp_req++;
-
             e_lvl++;
         }
     }
@@ -93,7 +87,7 @@ rpg_roll_mob(hero_t *     hero,
              mob_t        mob)
 {
     if (mob == RANDOM_M)
-        mob = rpg_safer_rand(0, DRAGON);
+        mob = rpg_rand(0, DRAGON);
 
     switch (mob) {
     case HUMANOID:
@@ -117,8 +111,8 @@ rpg_input_name(hero_t * h)
     while (!done) {
         if (regen_name) {
             memset(h->name, '\0', MAX_NAME_LEN);
-            strcat(h->name, prefix_list[rpg_safer_rand(0, MAX_PREFIX - 1)]);
-            strcat(h->name, suffix_list[rpg_safer_rand(0, MAX_SUFFIX - 1)]);
+            strcat(h->name, prefix_list[rpg_rand(0, MAX_PREFIX - 1)]);
+            strcat(h->name, suffix_list[rpg_rand(0, MAX_SUFFIX - 1)]);
 
             rpg_tui_clear_screen();
             printw("character name: %s\n", h->name);
@@ -127,7 +121,7 @@ rpg_input_name(hero_t * h)
             regen_name = 0;
         }
 
-        choice = rpg_tui_safer_fgetc();
+        choice = rpg_tui_getch();
 
         switch (choice) {
         case 'y':
@@ -143,8 +137,6 @@ rpg_input_name(hero_t * h)
         default:
             break;
         }
-
-        //rpg_tui_clear_stdin();
     }
 
     rpg_tui_clear_screen();
@@ -160,11 +152,10 @@ rpg_roll_player(hero_t *     h,
 
     h->gold = 10;
     h->attack = weapon_attack_cb;
-
     h->level = lvl ? lvl : 1;
+    h->xp_req = 1;
 
     rpg_gen_base_stats(h);
-
     rpg_input_name(h);
 
     for (size_t i = 0; i < MAX_ITEMS; ++i) {
@@ -183,7 +174,7 @@ rpg_roll_player(hero_t *     h,
         printw("  t - Thief. Steal gold.\n");
 
         size_t done = 0;
-        char   choice = rpg_tui_safer_fgetc();
+        char   choice = rpg_tui_getch();
 
         switch (choice) {
         case 't': /* thief */
@@ -230,8 +221,6 @@ rpg_roll_player(hero_t *     h,
             break;
         }
 
-        //rpg_tui_clear_stdin();
-
         if (done) { break; }
     }
 
@@ -253,10 +242,10 @@ rpg_roll_humanoid(hero_t *     h,
     memset(h, 0, sizeof(hero_t));
 
     h->mob_type = HUMANOID;
-    h->sub_type = rpg_safer_rand(0, KNIGHT);
+    h->sub_type = rpg_rand(0, KNIGHT);
 
-    h->gold = rpg_safer_rand(5, 15);
-    h->xp_rew = rpg_safer_rand(1, 3);
+    h->gold = rpg_rand(5, 15);
+    h->xp_rew = rpg_rand(1, 3);
     h->attack = weapon_attack_cb;
 
     h->level = lvl ? lvl : 1;
@@ -339,15 +328,15 @@ rpg_roll_animal(hero_t *     h,
 {
     memset(h, 0, sizeof(hero_t));
 
-    h->xp_rew = rpg_safer_rand(1, 3);
+    h->xp_rew = rpg_rand(1, 3);
     h->mob_type = ANIMAL;
-    h->sub_type = rpg_safer_rand(0, BEAR);
+    h->sub_type = rpg_rand(0, BEAR);
 
     if (name && *name) {
         strcpy(h->name, name);
     }
     else {
-        const size_t j = rpg_safer_rand(0, NUM_MOB_SUB_TYPES);
+        const size_t j = rpg_rand(0, NUM_MOB_SUB_TYPES);
         switch (h->sub_type) {
         case DOG:
             strcpy(h->name, dog_list[j]);
@@ -431,16 +420,16 @@ rpg_roll_dragon(hero_t *     h,
     //       at high enough level.
     size_t d_lvl = (lvl / 10) + 1;
 
-    h->gold = rpg_safer_rand(5, 15);
-    h->xp_rew = rpg_safer_rand(1, 3);
+    h->gold = rpg_rand(5, 15);
+    h->xp_rew = rpg_rand(1, 3);
     h->mob_type = DRAGON;
-    h->sub_type = rpg_safer_rand(0, d_lvl);
+    h->sub_type = rpg_rand(0, d_lvl);
 
     if (name && *name) {
         strcpy(h->name, name);
     }
     else {
-        const size_t j = rpg_safer_rand(0, NUM_MOB_SUB_TYPES);
+        const size_t j = rpg_rand(0, NUM_MOB_SUB_TYPES);
         switch (h->sub_type) {
         case FOREST_DRAGON:
             strcpy(h->name, forest_dragon_list[j]);
@@ -524,11 +513,11 @@ rpg_roll_dragon(hero_t *     h,
 void
 rpg_gen_base_stats(hero_t * h)
 {
-    h->base.sta = h->level + BASE_STAT + (rpg_safer_rand(0, BASE_STAT_VAR));
-    h->base.str = h->level + BASE_STAT + (rpg_safer_rand(0, BASE_STAT_VAR));
-    h->base.agi = h->level + BASE_STAT + (rpg_safer_rand(0, BASE_STAT_VAR));
-    h->base.wis = h->level + BASE_STAT + (rpg_safer_rand(0, BASE_STAT_VAR));
-    h->base.spr = h->level + BASE_STAT + (rpg_safer_rand(0, BASE_STAT_VAR));
+    h->base.sta = h->level + BASE_STAT + (rpg_rand(0, BASE_STAT_VAR));
+    h->base.str = h->level + BASE_STAT + (rpg_rand(0, BASE_STAT_VAR));
+    h->base.agi = h->level + BASE_STAT + (rpg_rand(0, BASE_STAT_VAR));
+    h->base.wis = h->level + BASE_STAT + (rpg_rand(0, BASE_STAT_VAR));
+    h->base.spr = h->level + BASE_STAT + (rpg_rand(0, BASE_STAT_VAR));
 
     return;
 }
@@ -538,6 +527,7 @@ void
 level_up(hero_t * h)
 {
     ++(h->level);
+    ++(h->xp_req);
     ++(h->base.sta);
     ++(h->base.str);
     ++(h->base.agi);
@@ -560,7 +550,7 @@ level_up(hero_t * h)
         size_t done = 0;
 
         for (;;) {
-            char choice = rpg_tui_safer_fgetc();
+            char choice = rpg_tui_getch();
 
             switch (choice) {
             case '1':
@@ -592,8 +582,6 @@ level_up(hero_t * h)
                 printw("error: invalid input %c\n", choice);
                 break;
             }
-
-            //rpg_tui_clear_stdin();
 
             if (done) { break; }
         }
@@ -833,15 +821,13 @@ decision_loop(hero_t * hero,
 
     for (;;) {
         rpg_tui_print_act_prompt(hero, ACTION_ROW, ACTION_COL);
-        act_var = rpg_tui_safer_fgetc();
+        act_var = rpg_tui_getch();
         rpg_tui_clear_act_prompt(hero, ACTION_ROW, ACTION_COL);
 
         switch (act_var) {
         case 'a':
-            if (choose_attack(hero, enemy)) {
-                done = 1;
-            }
-
+            hero->attack(hero, enemy);
+            done = 1;
             break;
 
         case 'u':
@@ -860,59 +846,6 @@ decision_loop(hero_t * hero,
 
     return;
 }
-
-size_t
-choose_attack(hero_t * hero,
-              hero_t * enemy)
-{
-    size_t done = 0;
-    size_t status;
-    char   act_var;
-
-    for (;;) {
-        rpg_tui_print_attack_prompt(hero, ACTION_ROW, ACTION_COL);
-
-        act_var = rpg_tui_safer_fgetc();
-
-        rpg_tui_clear_attack_prompt(hero, ACTION_ROW, ACTION_COL);
-
-        switch (act_var) {
-        case 'a':
-            hero->attack(hero, enemy);
-            done = 1;
-            break;
-
-        case 'b':
-            status = back_stab(hero, enemy);
-            done = 1;
-            break;
-
-        case 'c':
-            status = crushing_blow(hero, enemy);
-            done = 1;
-            break;
-
-        case 'd':
-            status = drain_touch(hero, enemy);
-            done = 1;
-            break;
-
-        case 's':
-            status = shield_bash(hero, enemy);
-            done = 1;
-            break;
-
-        default:
-            printw("error: invalid input %c\n", act_var);
-            break;
-        }
-
-        if (done) { break; }
-    }
-
-    return status;
-}
-
 
 size_t
 attack_barrier(size_t   final_dmg,

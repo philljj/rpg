@@ -7,6 +7,6 @@
 
 #define MAX_RAND_NUM (UINT16_MAX)
 
-void   rpg_init_rand(void);
-size_t rpg_safer_rand(const size_t min, const size_t max);
+void   rpg_rand_init(void);
+size_t rpg_rand(const size_t min, const size_t max);
 #endif /* if !defined(SAFER_RAND_H) */

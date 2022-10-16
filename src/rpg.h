@@ -211,8 +211,6 @@ const char * mob_to_str(const mob_t m);
 // Combat functions.
 void   decision_loop(hero_t * hero, hero_t * enemy);
 void   spirit_regen(hero_t * h);
-size_t choose_attack(hero_t * hero, hero_t * enemy);
-size_t choose_spell(hero_t * hero, hero_t * enemy);
 void   battle(hero_t * hero, hero_t * enemy);
 
 size_t back_stab(hero_t * hero, hero_t * enemy);
