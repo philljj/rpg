@@ -51,7 +51,6 @@ main(int    argc   __attribute__((unused)),
 
     rpg_tui_print_portrait(&hero, PORTRAIT_ROW, PORTRAIT_COL);
 
-
     for (;;) {
         rpg_roll_mob(&enemy, 0, e_lvl, RANDOM_M);
         rpg_tui_print_portrait(&enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
@@ -62,7 +61,7 @@ main(int    argc   __attribute__((unused)),
             break;
         }
 
-        set_hp_mp_bp(&hero);
+        rpg_reset_hp_mp_bp(&hero);
 
         printw("%s gains %zu xp and %zu gold\n", hero.name, enemy.xp_rew,
                enemy.gold);
@@ -144,6 +143,111 @@ rpg_input_name(hero_t * h)
     return;
 }
 
+static void
+rpg_equip_job(hero_t * h)
+{
+    switch (h->sub_type) {
+    case SQUIRE:
+        h->items[MAIN_HAND] = gen_item("sword", h->level, COMMON, 1, WEAPON,
+                                       MAIN_HAND, BLUNT);
+        h->items[OFF_HAND] = gen_item("shield", h->level, COMMON, 0, SHIELD,
+                                      OFF_HAND, NOT_WEAPON);
+        gen_item_set(h, h->level, COMMON, LEATHER);
+        break;
+
+    case CHEMIST:
+        h->items[MAIN_HAND] = gen_item("dagger", h->level, COMMON, 1, WEAPON,
+                                       MAIN_HAND, PIERCING);
+        gen_item_set(h, h->level, COMMON, LEATHER);
+        break;
+
+    case THIEF:
+        h->items[MAIN_HAND] = gen_item("dagger", h->level, COMMON, 1, WEAPON,
+                                       MAIN_HAND, PIERCING);
+        gen_item_set(h, h->level, COMMON, LEATHER);
+        break;
+
+    case CLERIC:
+        h->items[MAIN_HAND] = gen_item("dagger", h->level, COMMON, 1, WEAPON,
+                                       MAIN_HAND, PIERCING);
+        gen_item_set(h, h->level, COMMON, LEATHER);
+        break;
+
+    case KNIGHT:
+        h->items[MAIN_HAND] = gen_item("sword", h->level, COMMON, 1, WEAPON,
+                                      MAIN_HAND, RANDOM_W);
+        h->items[OFF_HAND] = gen_item("shield", h->level, COMMON, 0, SHIELD,
+                                      OFF_HAND, NOT_WEAPON);
+        gen_item_set(h, h->level, COMMON, MAIL);
+        break;
+    }
+
+    return;
+}
+
+int
+rpg_set_job(hero_t * h,
+            job_t    job,
+            int      is_primary)
+{
+    if (!h->jobs[job].unlocked)
+        return 0;
+
+    if (is_primary) {
+        h->job_primary = &h->jobs[job];
+        h->sub_type = job;
+    }
+    else {
+        h->job_secondary = &h->jobs[job];
+    }
+
+    return 1;
+}
+
+void
+rpg_unlock_job(hero_t * h,
+               job_t    job)
+{
+    if (h->jobs[job].unlocked)
+        return;
+
+    switch (job) {
+    case SQUIRE:
+        strcpy(h->jobs[job].name, "SQUIRE");
+        h->jobs[job].color = COLOR_RED;
+        h->jobs[job].skill_cb = squire_skills;
+        break;
+    case CHEMIST:
+        strcpy(h->jobs[job].name, "CHEMIST");
+        h->jobs[job].color = COLOR_RED;
+        h->jobs[job].skill_cb = chemist_skills;
+        break;
+    case THIEF:
+        strcpy(h->jobs[job].name, "THIEF");
+        h->jobs[job].color = COLOR_RED;
+        h->jobs[job].skill_cb = thief_skills;
+        break;
+    case CLERIC:
+        strcpy(h->jobs[job].name, "CLERIC");
+        h->jobs[job].color = COLOR_RED;
+        h->jobs[job].skill_cb = cleric_skills;
+        break;
+    case KNIGHT:
+        strcpy(h->jobs[job].name, "KNIGHT");
+        h->jobs[job].color = COLOR_RED;
+        h->jobs[job].skill_cb = knight_skills;
+        break;
+    }
+
+    h->jobs[job].unlocked = 1;
+    h->jobs[job].job = job;
+    h->jobs[job].job_level = 1;
+    h->jobs[job].jp = 1;
+    h->jobs[job].jp_req = 1;
+
+    return;
+}
+
 hero_t *
 rpg_roll_player(hero_t *     h,
                 const size_t lvl)
@@ -166,6 +270,8 @@ rpg_roll_player(hero_t *     h,
         h->inventory[i].slot = NO_ITEM;
     }
 
+    job_t job;
+
     for (;;) {
         rpg_tui_clear_screen();
         printw("choose specialization:\n");
@@ -179,41 +285,19 @@ rpg_roll_player(hero_t *     h,
         switch (choice) {
         case 't': /* thief */
         case 'T':
-            h->items[MAIN_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, MAIN_HAND,
-                                           PIERCING);
-            h->cooldowns[BACK_STAB].unlocked = 1;
-            h->job_primary = thief_skills;
+            job = THIEF;
             done = 1;
             break;
 
         case 'c': /* chemist */
         case 'C':
-            h->items[MAIN_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, MAIN_HAND,
-                                           PIERCING);
-
-            h->cooldowns[USE_ITEM].unlocked = 1;
-            h->job_primary = chemist_item;
+            job = CHEMIST;
             done = 1;
             break;
 
         case 's': /* squire */
         case 'S':
-            h->items[MAIN_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, MAIN_HAND,
-                                          RANDOM_W);
-            h->items[OFF_HAND] = gen_item(0, h->level, COMMON, 0, SHIELD, OFF_HAND,
-                                          NOT_WEAPON);
-            h->job_primary = squire_skills;
-
-            done = 1;
-            break;
-
-        case 'd': /* druid */
-        case 'D':
-            h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
-                                         BLUNT);
-
-            h->job_primary = druid_skills;
-            h->cooldowns[INSECT_SWARM].unlocked = 1;
+            job = SQUIRE;
             done = 1;
             break;
 
@@ -224,15 +308,15 @@ rpg_roll_player(hero_t *     h,
         if (done) { break; }
     }
 
+    rpg_unlock_job(h, job);
+    rpg_set_job(h, job, 1);
+
     rpg_tui_clear_screen();
-
-    gen_item_set(h, h->level, COMMON, CLOTH);
-
-    set_hp_mp_bp(h);
+    rpg_equip_job(h);
+    rpg_reset_hp_mp_bp(h);
 
     return h;
 }
-
 
 hero_t *
 rpg_roll_humanoid(hero_t *     h,
@@ -279,43 +363,8 @@ rpg_roll_humanoid(hero_t *     h,
         h->items[i].slot = NO_ITEM;
     }
 
-    switch (h->sub_type) {
-    case SQUIRE:
-        h->items[MAIN_HAND] = gen_item("sword", h->level, COMMON, 1, WEAPON,
-                                       MAIN_HAND, BLUNT);
-        h->items[OFF_HAND] = gen_item("shield", h->level, COMMON, 0, SHIELD,
-                                      OFF_HAND, NOT_WEAPON);
-        gen_item_set(h, h->level, COMMON, LEATHER);
-        break;
-
-    case CHEMIST:
-        h->items[MAIN_HAND] = gen_item("dagger", h->level, COMMON, 1, WEAPON,
-                                       MAIN_HAND, PIERCING);
-        gen_item_set(h, h->level, COMMON, LEATHER);
-        break;
-
-    case THIEF:
-        h->items[MAIN_HAND] = gen_item("dagger", h->level, COMMON, 1, WEAPON,
-                                       MAIN_HAND, PIERCING);
-        gen_item_set(h, h->level, COMMON, LEATHER);
-        break;
-
-    case CLERIC:
-        h->items[MAIN_HAND] = gen_item("dagger", h->level, COMMON, 1, WEAPON,
-                                       MAIN_HAND, PIERCING);
-        gen_item_set(h, h->level, COMMON, LEATHER);
-        break;
-
-    case KNIGHT:
-        h->items[MAIN_HAND] = gen_item("sword", h->level, COMMON, 1, WEAPON,
-                                      MAIN_HAND, RANDOM_W);
-        h->items[OFF_HAND] = gen_item("shield", h->level, COMMON, 0, SHIELD,
-                                      OFF_HAND, NOT_WEAPON);
-        gen_item_set(h, h->level, COMMON, MAIL);
-        break;
-    }
-
-    set_hp_mp_bp(h);
+    rpg_equip_job(h);
+    rpg_reset_hp_mp_bp(h);
 
     return h;
 }
@@ -401,7 +450,7 @@ rpg_roll_animal(hero_t *     h,
         break;
     }
 
-    set_hp_mp_bp(h);
+    rpg_reset_hp_mp_bp(h);
 
     return h;
 }
@@ -504,7 +553,7 @@ rpg_roll_dragon(hero_t *     h,
         break;
     }
 
-    set_hp_mp_bp(h);
+    rpg_reset_hp_mp_bp(h);
 
     return h;
 }
@@ -589,7 +638,7 @@ level_up(hero_t * h)
 
     h->xp = 0;
 
-    set_hp_mp_bp(h);
+    rpg_reset_hp_mp_bp(h);
 
     rpg_tui_print_portrait(h, PORTRAIT_ROW, PORTRAIT_COL);
 
@@ -600,7 +649,7 @@ level_up(hero_t * h)
 
 
 void
-set_hp_mp_bp(hero_t * h)
+rpg_reset_hp_mp_bp(hero_t * h)
 {
     h->hp = get_max_hp(h);
     h->mp = get_max_mp(h);
@@ -853,7 +902,6 @@ attack_barrier(size_t   final_dmg,
 {
     size_t bp = enemy->bp;
     size_t hp = enemy->hp;
-
     size_t hp_reduced = 0;
 
     if (bp) {
@@ -985,8 +1033,8 @@ add_to_inventory(hero_t * h,
 }
 
 void
-chemist_item(void * h,
-             void * e)
+chemist_skills(void * h,
+              void * e)
 {
     hero_t * hero = h;
 
@@ -995,7 +1043,7 @@ chemist_item(void * h,
 
 void
 squire_skills(void * h,
-                       void * e)
+             void * e)
 {
     hero_t * hero = h;
     hero_t * enemy = e;
@@ -1004,25 +1052,25 @@ squire_skills(void * h,
 
 void
 thief_skills(void * h,
-             void * e)
-{
-    hero_t * hero = h;
-    hero_t * enemy = e;
-
-}
-
-void
-druid_skills(void * h,
-             void * e)
-{
-    hero_t * hero = h;
-    hero_t * enemy = e;
-
-}
-
-void
-cleric_pray(void * h,
             void * e)
+{
+    hero_t * hero = h;
+    hero_t * enemy = e;
+
+}
+
+void
+knight_skills(void * h,
+             void * e)
+{
+    hero_t * hero = h;
+    hero_t * enemy = e;
+
+}
+
+void
+cleric_skills(void * h,
+             void * e)
 {
     hero_t * hero = h;
     hero_t * enemy = e;

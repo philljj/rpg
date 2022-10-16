@@ -84,6 +84,8 @@ typedef enum {
  *
  */
 
+#define NUM_JOBS 5
+
 typedef enum {
     SQUIRE  =  0,
     CHEMIST =  1,
@@ -101,24 +103,6 @@ typedef enum {
     RANDOM_DRAGON = 99
 } dragon_t;
 
-#if 0
-typedef enum {
-    // Beginner passives, unlocked at class selection.
-    QUICKNESS      = 0,  // t, +10% agility
-    PRIMAL_MIGHT   = 1,  // b, +10% strength
-    DEFTNESS       = 2,  // s, +10% one hand weapon dmg.
-    DIVINITY       = 3,  // p, +20% to all healing effects
-    NATURES_WRATH  = 4,  // d, melee attacks 10% change to trigger 50% nature dmg.
-    INSIGHT        = 5,  // w, +10% wisdom
-    NECROMANCER    = 6,  // n, +10% shadow dmg
-    DEFLECTION     = 7,  // k, block and parry % from strength
-    IMBUED_WEAPONS = 8,  // g, weapon attacks deal additional 10% non-elem dmg.
-    // Novice.
-    FLURRY         = 22, // s, 10% chance to trigger 2nd melee, can double proc.
-    FEL_TOUCH      = 26, // n, All attacks do 4% drain life.
-} passives_t;
-#endif
-
 
 typedef void (*rpg_attack_func_t)(void * hero, void * enemy);
 /* These callbacks were ultimately not that useful...
@@ -135,10 +119,11 @@ typedef void (*rpg_attack_func_t)(void * hero, void * enemy);
  */
 
 struct job_skill_t {
+    char              name[16];  // "pray"
     job_t             job;       // CLERIC
     short             color;     // COLOR_CYAN
-    char              name[16];  // "pray"
     rpg_attack_func_t skill_cb;  // cleric_pray()
+    size_t            unlocked;
     size_t            job_level; // determines future job/skill unlocks
     size_t            jp;        // job points
     size_t            jp_req;    // job points
@@ -172,10 +157,9 @@ struct hero_t {
     item_t   inventory[MAX_INVENTORY];
     // Callbacks.
     rpg_attack_func_t attack;
-    rpg_attack_func_t job_primary;
-    rpg_attack_func_t job_secondary;
-    job_skill_t       skill_primary;
-    job_skill_t       skill_second;
+    job_skill_t *     job_primary;
+    job_skill_t *     job_secondary;
+    job_skill_t       jobs[NUM_JOBS];
     // reaction callback? counterattack, etc
     // movement skill
     // support skill
@@ -199,7 +183,7 @@ void     rpg_gen_base_stats(hero_t * h);
 stats_t get_total_stats(const hero_t * h);
 
 void   level_up(hero_t * h);
-void   set_hp_mp_bp(hero_t * h);
+void   rpg_reset_hp_mp_bp(hero_t * h);
 size_t get_max_hp(const hero_t * h);
 size_t get_max_mp(const hero_t * h);
 
@@ -221,10 +205,11 @@ size_t shield_bash(hero_t * hero, hero_t * enemy);
 /* stackable druid nature debuff */
 size_t insect_swarm(hero_t * hero, hero_t * enemy);
 
-void chemist_item(void * h, void * e);
 void squire_skills(void * h, void * e);
+void chemist_skills(void * h, void * e);
 void thief_skills(void * h, void * e);
-void druid_skills(void * h, void * e);
+void knight_skills(void * h, void * e);
+void cleric_skills(void * h, void * e);
 
 
 // Debuffs and cooldowns.

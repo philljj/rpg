@@ -38,16 +38,16 @@ rpg_tui_print_portrait(hero_t *     h,
     // j: column
     stats_t stats = get_total_stats(h);
     mvprintw(i+ 0, j, "");
-    mvprintw(i+ 1, j, "name:  %s    ", h->name);
-    mvprintw(i+ 2, j, "level: %zu, %s", h->level, mob_to_str(h->mob_type));
+    mvprintw(i+ 1, j, "name:  %s    ",        h->name);
+    mvprintw(i+ 2, j, "level: %zu, %s",       h->level, mob_to_str(h->mob_type));
     mvprintw(i+ 3, j, "hp:    %zu / %zu    ", h->hp, get_max_hp(h));
     mvprintw(i+ 4, j, "mp:    %zu / %zu    ", h->mp, get_max_mp(h));
-    mvprintw(i+ 5, j, "sta:   %zu    ", stats.sta);
-    mvprintw(i+ 6, j, "str:   %zu    ", stats.str);
-    mvprintw(i+ 7, j, "agi:   %zu    ", stats.agi);
-    mvprintw(i+ 8, j, "wis:   %zu    ", stats.wis);
-    mvprintw(i+ 9, j, "spr:   %zu    ", stats.spr);
-    mvprintw(i+10, j, "armor: %zu    ", get_armor(h));
+    mvprintw(i+ 5, j, "sta:   %zu    ",       stats.sta);
+    mvprintw(i+ 6, j, "str:   %zu    ",       stats.str);
+    mvprintw(i+ 7, j, "agi:   %zu    ",       stats.agi);
+    mvprintw(i+ 8, j, "wis:   %zu    ",       stats.wis);
+    mvprintw(i+ 9, j, "spr:   %zu    ",       stats.spr);
+    mvprintw(i+10, j, "armor: %zu    ",       get_armor(h));
 
     return;
 }
@@ -58,7 +58,6 @@ rpg_tui_move_cursor(const size_t i,
                     const size_t j)
 {
     // Move to i'th row, j'th column.
-    //printw("\033[%zu;%zuH ", i, j);
     move(i, j);
 
     return;
@@ -88,31 +87,6 @@ rpg_tui_getch(void)
         return (char) n;
     else
         return '\0';
-}
-
-
-void
-rpg_tui_clear_stdin(void)
-{
-    size_t done = 0;
-
-    for (;;) {
-        char n = rpg_tui_getch();
-
-        switch (n) {
-        case '\0':
-        case '\n':
-            done = 1;
-            break;
-
-        default:
-            break;
-        }
-
-        if (done) { break; }
-    }
-
-    return;
 }
 
 void
