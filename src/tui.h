@@ -1,5 +1,6 @@
 #if !defined(TUI_H)
 #define TUI_H
+void rpg_tui_init(void);
 void rpg_tui_print_portrait(hero_t * h, const size_t i, const size_t j);
 void rpg_tui_move_cursor(const size_t i, const size_t j);
 void rpg_tui_del_eof(void);

@@ -17,7 +17,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "safer_rand.h"
 #include "names.h"
 #include "item_stats.h"
 #include "spell_type.h"
@@ -26,7 +25,7 @@
 #include "tui.h"
 #include "combat_stats.h"
 #include "ability_callbacks.h"
-#include "color.h"
+#include "safer_rand.h"
 
 #include <curses.h>
 
@@ -38,24 +37,15 @@ int
 main(int    argc   __attribute__((unused)),
      char * argv[] __attribute__((unused)))
 {
-    initscr();
-    noecho();
-    cbreak();
-    timeout(-1);
-    start_color();
+    size_t h_lvl = 2;
+    size_t e_lvl = 1;
 
-    //init_pair(1, COLOR_RED, COLOR_BLACK);
-    //attron(COLOR_PAIR(1));
-    //attroff(COLOR_PAIR(1));
 
     assert(REGEN < MAX_COOLDOWNS);
     assert(HOT < MAX_DEBUFFS);
 
-    init_rand();
-    rpg_tui_clear_screen();
-
-    size_t h_lvl = 2;
-    size_t e_lvl = 1;
+    rpg_init_rand();
+    rpg_tui_init();
 
     hero_t hero;
     hero_t enemy;
@@ -83,8 +73,6 @@ main(int    argc   __attribute__((unused)),
         hero.gold += enemy.gold;
         sleep(1);
 
-        spawn_item_drop(&hero);
-
         if (hero.xp >= hero.xp_req) {
             level_up(&hero);
 
@@ -105,7 +93,7 @@ rpg_roll_mob(hero_t *     hero,
              mob_t        mob)
 {
     if (mob == RANDOM_M)
-        mob = safer_rand(0, DRAGON);
+        mob = rpg_safer_rand(0, DRAGON);
 
     switch (mob) {
     case HUMANOID:
@@ -129,8 +117,8 @@ rpg_input_name(hero_t * h)
     while (!done) {
         if (regen_name) {
             memset(h->name, '\0', MAX_NAME_LEN);
-            strcat(h->name, prefix_list[safer_rand(0, MAX_PREFIX - 1)]);
-            strcat(h->name, suffix_list[safer_rand(0, MAX_SUFFIX - 1)]);
+            strcat(h->name, prefix_list[rpg_safer_rand(0, MAX_PREFIX - 1)]);
+            strcat(h->name, suffix_list[rpg_safer_rand(0, MAX_SUFFIX - 1)]);
 
             rpg_tui_clear_screen();
             printw("character name: %s\n", h->name);
@@ -190,16 +178,9 @@ rpg_roll_player(hero_t *     h,
     for (;;) {
         rpg_tui_clear_screen();
         printw("choose specialization:\n");
-        printw("  t - Thief. Unlocks back stab.\n");
+        printw("  s - Squire. Unlocks back stab.\n");
         printw("  c - Chemist. Unlocks Use / Throw / Mix items.\n");
-        printw("  b - Barbarian. Unlocks crushing blow.\n");
-        printw("  s - Soldier. Unlocks shield bash.\n");
-        printw("  p - Priest. Unlocks holy smite.\n");
-        printw("  d - Druid. Unlocks insect swarm.\n");
-        printw("  w - Wizard. Unlocks fireball.\n");
-        printw("  n - Necromancer. Unlocks drain touch.\n");
-        printw("  k - Knight. Unlocks shield wall.\n");
-        printw("  g - Geomancer. Unlocks elemental attack.\n");
+        printw("  t - Thief. Steal gold.\n");
 
         size_t done = 0;
         char   choice = rpg_tui_safer_fgetc();
@@ -210,14 +191,7 @@ rpg_roll_player(hero_t *     h,
             h->items[MAIN_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, MAIN_HAND,
                                            PIERCING);
             h->cooldowns[BACK_STAB].unlocked = 1;
-            done = 1;
-            break;
-
-        case 'b': /* barbarian */
-        case 'B':
-            h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
-                                         RANDOM_W);
-            h->cooldowns[CRUSHING_BLOW].unlocked = 1;
+            h->job_primary = thief_skills;
             done = 1;
             break;
 
@@ -227,26 +201,18 @@ rpg_roll_player(hero_t *     h,
                                            PIERCING);
 
             h->cooldowns[USE_ITEM].unlocked = 1;
+            h->job_primary = chemist_item;
             done = 1;
             break;
 
-        case 's': /* soldier */
+        case 's': /* squire */
         case 'S':
             h->items[MAIN_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, MAIN_HAND,
                                           RANDOM_W);
             h->items[OFF_HAND] = gen_item(0, h->level, COMMON, 0, SHIELD, OFF_HAND,
-                                          NO_WEAPON);
+                                          NOT_WEAPON);
+            h->job_primary = squire_skills;
 
-            h->cooldowns[SHIELD_BASH].unlocked = 1;
-            done = 1;
-            break;
-
-        case 'p': /* priest */
-        case 'P':
-            h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
-                                         BLUNT);
-
-            h->cooldowns[HOLY_SMITE].unlocked = 1;
             done = 1;
             break;
 
@@ -255,44 +221,12 @@ rpg_roll_player(hero_t *     h,
             h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
                                          BLUNT);
 
+            h->job_primary = druid_skills;
             h->cooldowns[INSECT_SWARM].unlocked = 1;
             done = 1;
             break;
 
-        case 'w': /* wizard */
-        case 'W':
-            h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
-                                         BLUNT);
-
-            h->cooldowns[FIREBALL].unlocked = 1;
-            done = 1;
-            break;
-
-        case 'n': /* necromancer */
-        case 'N':
-            h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
-                                         BLUNT);
-
-            h->cooldowns[DRAIN_TOUCH].unlocked = 1;
-            done = 1;
-            break;
-
-        case 'k': /* knight */
-        case 'K':
-            h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
-                                         BLUNT);
-
-            h->cooldowns[SHIELD_WALL].unlocked = 1;
-            done = 1;
-            break;
-
-        case 'g': /* geomancer */
-        case 'G':
-            h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
-                                         BLUNT);
-
-            h->cooldowns[ELEMENTAL].unlocked = 1;
-            done = 1;
+        default:
             break;
         }
 
@@ -319,10 +253,10 @@ rpg_roll_humanoid(hero_t *     h,
     memset(h, 0, sizeof(hero_t));
 
     h->mob_type = HUMANOID;
-    h->sub_type = safer_rand(0, KNIGHT);
+    h->sub_type = rpg_safer_rand(0, KNIGHT);
 
-    h->gold = safer_rand(5, 15);
-    h->xp_rew = safer_rand(1, 3);
+    h->gold = rpg_safer_rand(5, 15);
+    h->xp_rew = rpg_safer_rand(1, 3);
     h->attack = weapon_attack_cb;
 
     h->level = lvl ? lvl : 1;
@@ -334,17 +268,14 @@ rpg_roll_humanoid(hero_t *     h,
     }
     else {
         switch (h->sub_type) {
-        case BARBARIAN:
-            strcpy(h->name, "barbarian");
+        case SQUIRE:
+            strcpy(h->name, "squire");
             break;
-        case SOLDIER:
-            strcpy(h->name, "soldier");
+        case CHEMIST:
+            strcpy(h->name, "chemist");
             break;
-        case PRIEST:
-            strcpy(h->name, "priest");
-            break;
-        case WIZARD:
-            strcpy(h->name, "wizard");
+        case THIEF:
+            strcpy(h->name, "thief");
             break;
         case KNIGHT:
             strcpy(h->name, "knight");
@@ -360,53 +291,39 @@ rpg_roll_humanoid(hero_t *     h,
     }
 
     switch (h->sub_type) {
-    case BARBARIAN:
-        h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
-                                     RANDOM_W);
+    case SQUIRE:
+        h->items[MAIN_HAND] = gen_item("sword", h->level, COMMON, 1, WEAPON,
+                                       MAIN_HAND, BLUNT);
+        h->items[OFF_HAND] = gen_item("shield", h->level, COMMON, 0, SHIELD,
+                                      OFF_HAND, NOT_WEAPON);
         gen_item_set(h, h->level, COMMON, LEATHER);
-
         break;
 
-    case SOLDIER:
-        h->items[MAIN_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, MAIN_HAND,
-                                     RANDOM_W);
-        h->items[OFF_HAND] = gen_item(0, h->level, COMMON, 0, SHIELD, OFF_HAND,
-                                     NO_WEAPON);
-
-        gen_item_set(h, h->level, COMMON, MAIL);
-
-        break;
-
-    case WIZARD:
-    case PRIEST:
-        h->items[TWO_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, TWO_HAND,
-                                     BLUNT);
-
-        gen_item_set(h, h->level, COMMON, CLOTH);
-
-        break;
-
-    case KNIGHT:
-        h->items[MAIN_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, MAIN_HAND,
-                                      RANDOM_W);
-        h->items[OFF_HAND] = gen_item(0, h->level, COMMON, 0, SHIELD, OFF_HAND,
-                                     NO_WEAPON);
-
-        gen_item_set(h, h->level, COMMON, PLATE);
-
+    case CHEMIST:
+        h->items[MAIN_HAND] = gen_item("dagger", h->level, COMMON, 1, WEAPON,
+                                       MAIN_HAND, PIERCING);
+        gen_item_set(h, h->level, COMMON, LEATHER);
         break;
 
     case THIEF:
-    default:
-        h->items[MAIN_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, MAIN_HAND,
-                                     RANDOM_W);
-        h->items[OFF_HAND] = gen_item(0, h->level, COMMON, 1, WEAPON, OFF_HAND,
-                                     PIERCING);
-
+        h->items[MAIN_HAND] = gen_item("dagger", h->level, COMMON, 1, WEAPON,
+                                       MAIN_HAND, PIERCING);
         gen_item_set(h, h->level, COMMON, LEATHER);
-
         break;
 
+    case CLERIC:
+        h->items[MAIN_HAND] = gen_item("dagger", h->level, COMMON, 1, WEAPON,
+                                       MAIN_HAND, PIERCING);
+        gen_item_set(h, h->level, COMMON, LEATHER);
+        break;
+
+    case KNIGHT:
+        h->items[MAIN_HAND] = gen_item("sword", h->level, COMMON, 1, WEAPON,
+                                      MAIN_HAND, RANDOM_W);
+        h->items[OFF_HAND] = gen_item("shield", h->level, COMMON, 0, SHIELD,
+                                      OFF_HAND, NOT_WEAPON);
+        gen_item_set(h, h->level, COMMON, MAIL);
+        break;
     }
 
     set_hp_mp_bp(h);
@@ -422,15 +339,15 @@ rpg_roll_animal(hero_t *     h,
 {
     memset(h, 0, sizeof(hero_t));
 
-    h->xp_rew = safer_rand(1, 3);
+    h->xp_rew = rpg_safer_rand(1, 3);
     h->mob_type = ANIMAL;
-    h->sub_type = safer_rand(0, BEAR);
+    h->sub_type = rpg_safer_rand(0, BEAR);
 
     if (name && *name) {
         strcpy(h->name, name);
     }
     else {
-        const size_t j = safer_rand(0, NUM_MOB_SUB_TYPES);
+        const size_t j = rpg_safer_rand(0, NUM_MOB_SUB_TYPES);
         switch (h->sub_type) {
         case DOG:
             strcpy(h->name, dog_list[j]);
@@ -514,16 +431,16 @@ rpg_roll_dragon(hero_t *     h,
     //       at high enough level.
     size_t d_lvl = (lvl / 10) + 1;
 
-    h->gold = safer_rand(5, 15);
-    h->xp_rew = safer_rand(1, 3);
+    h->gold = rpg_safer_rand(5, 15);
+    h->xp_rew = rpg_safer_rand(1, 3);
     h->mob_type = DRAGON;
-    h->sub_type = safer_rand(0, d_lvl);
+    h->sub_type = rpg_safer_rand(0, d_lvl);
 
     if (name && *name) {
         strcpy(h->name, name);
     }
     else {
-        const size_t j = safer_rand(0, NUM_MOB_SUB_TYPES);
+        const size_t j = rpg_safer_rand(0, NUM_MOB_SUB_TYPES);
         switch (h->sub_type) {
         case FOREST_DRAGON:
             strcpy(h->name, forest_dragon_list[j]);
@@ -607,11 +524,11 @@ rpg_roll_dragon(hero_t *     h,
 void
 rpg_gen_base_stats(hero_t * h)
 {
-    h->base.sta = h->level + BASE_STAT + (safer_rand(0, BASE_STAT_VAR));
-    h->base.str = h->level + BASE_STAT + (safer_rand(0, BASE_STAT_VAR));
-    h->base.agi = h->level + BASE_STAT + (safer_rand(0, BASE_STAT_VAR));
-    h->base.wis = h->level + BASE_STAT + (safer_rand(0, BASE_STAT_VAR));
-    h->base.spr = h->level + BASE_STAT + (safer_rand(0, BASE_STAT_VAR));
+    h->base.sta = h->level + BASE_STAT + (rpg_safer_rand(0, BASE_STAT_VAR));
+    h->base.str = h->level + BASE_STAT + (rpg_safer_rand(0, BASE_STAT_VAR));
+    h->base.agi = h->level + BASE_STAT + (rpg_safer_rand(0, BASE_STAT_VAR));
+    h->base.wis = h->level + BASE_STAT + (rpg_safer_rand(0, BASE_STAT_VAR));
+    h->base.spr = h->level + BASE_STAT + (rpg_safer_rand(0, BASE_STAT_VAR));
 
     return;
 }
@@ -927,27 +844,9 @@ decision_loop(hero_t * hero,
 
             break;
 
-        case 's':
-            if (choose_spell(hero, enemy)) {
-                done = 1;
-            }
-            else {
-                printw("%s is out of mana\n", hero->name);
-            }
-
-            break;
-
         case 'u':
             if (!hero->cooldowns[USE_ITEM].unlocked)
                 break;
-
-            choose_inventory(hero, 0);
-
-            rpg_tui_move_cursor(1, 1);
-            rpg_tui_del_eof();
-
-            rpg_tui_print_portrait(hero, PORTRAIT_ROW, PORTRAIT_COL);
-            rpg_tui_print_portrait(enemy, PORTRAIT_ROW, PORTRAIT_COL + (2 * 32));
 
             break;
 
@@ -961,54 +860,6 @@ decision_loop(hero_t * hero,
 
     return;
 }
-
-
-size_t
-choose_spell(hero_t * hero,
-             hero_t * enemy)
-{
-    size_t done = 0;
-    size_t status;
-
-    for (;;) {
-        rpg_tui_print_spell_prompt(hero, ACTION_ROW, ACTION_COL);
-
-        char act_var = rpg_tui_safer_fgetc();
-
-        rpg_tui_clear_spell_prompt(hero, ACTION_ROW, ACTION_COL);
-
-        switch (act_var) {
-        case 'f':
-            status = fire_strike(hero, enemy);
-            done = 1;
-            break;
-
-        case 'b':
-            status = fireball(hero, enemy);
-            done = 1;
-            break;
-
-        case 'h':
-            status = holy_smite(hero, enemy);
-            done = 1;
-            break;
-
-        case 'n':
-            status = insect_swarm(hero, enemy);
-            done = 1;
-            break;
-
-        default:
-            printw("error: invalid input %c\n", act_var);
-            break;
-        }
-
-        if (done) { break; }
-    }
-
-    return status;
-}
-
 
 size_t
 choose_attack(hero_t * hero,
@@ -1175,64 +1026,6 @@ mob_to_str(const mob_t m)
     }
 }
 
-
-const char *
-elem_to_str(char *          str,
-            const element_t elem)
-{
-    if (!str) {
-        /* simple, no color formatting */
-        switch (elem) {
-        case FIRE:
-            return "fire";
-        case FROST:
-            return "frost";
-        case SHADOW:
-            return "shadow";
-        case NON_ELEM:
-            return "non-elemental";
-        case HOLY:
-            return "holy";
-        case NATURE:
-            return "nature";
-        case MELEE:
-            return "melee";
-        case RESTORATION:
-            return "restoration";
-        }
-    }
-
-    switch (elem) {
-    case FIRE:
-        sprintf(str, "%s%s%s", BRED, "fire", reset);
-        break;
-    case FROST:
-        sprintf(str, "%s%s%s", BBLU, "frost", reset);
-        break;
-    case SHADOW:
-        sprintf(str, "%s%s%s", BMAG, "shadow", reset);
-        break;
-    case NON_ELEM:
-        sprintf(str, "%s%s%s", BMAG, "non-elemental", reset);
-        break;
-    case HOLY:
-        sprintf(str, "%s%s%s", BYEL, "holy", reset);
-        break;
-    case NATURE:
-        sprintf(str, "%s%s%s", BGRN, "nature", reset);
-        break;
-    case MELEE:
-        sprintf(str, "%s%s%s", BWHT, "melee", reset);
-        break;
-    case RESTORATION:
-        sprintf(str, "%s%s%s", BGRN, "restoration", reset);
-        break;
-    }
-
-    return str;
-}
-
-
 item_t *
 add_to_inventory(hero_t * h,
                  item_t * new_item)
@@ -1258,387 +1051,50 @@ add_to_inventory(hero_t * h,
     return new_item;
 }
 
-
 void
-choose_inventory(hero_t * h,
-                 item_t * new_item)
+chemist_item(void * h,
+             void * e)
 {
-    // TODO: what is new_item is null because this menu
-    //       was pulled in battle.
-    size_t done = 0;
-    int    selection = -1;
+    hero_t * hero = h;
 
-    rpg_tui_move_cursor(1, 1);
-    rpg_tui_del_eof();
-
-    rpg_tui_print_equip(h);
-    print_selection(h, selection, new_item);
-    print_inventory(h, selection, new_item);
-
-    for (;;) {
-        rpg_tui_print_inventory_prompt();
-
-        char act_var = rpg_tui_safer_fgetc();
-
-        if (act_var == '\033') {
-            rpg_tui_safer_fgetc();
-            act_var = rpg_tui_safer_fgetc();
-
-            switch (act_var) {
-            case 'A':
-                selection--;
-                if (selection < -1) { selection = -1; }
-                break;
-
-            case 'B':
-                selection++;
-                if (selection > MAX_INVENTORY) {
-                    selection = MAX_INVENTORY;
-                }
-                break;
-
-            default:
-                break;
-            }
-        }
-        else {
-            switch (act_var) {
-            case 'a':
-                new_item = add_to_inventory(h, new_item);
-                break;
-
-            case 'd':
-                if (selection < 0) {
-                    if (new_item) {
-                        memset(new_item, 0, sizeof(item_t));
-                        new_item->slot = NO_ITEM;
-                    }
-                }
-                else {
-                    memset(&h->inventory[selection], 0, sizeof(item_t));
-                    h->inventory[selection].slot = NO_ITEM;
-                }
-
-                break;
-
-            case 'e':
-                equip_from_inventory(h, selection, new_item);
-                break;
-
-            case 'u':
-                use_from_inventory(h, selection, new_item);
-                break;
-
-            case 'q':
-                done = 1;
-                break;
-
-            default:
-                break;
-            }
-        }
-
-        rpg_tui_move_cursor(1, 1);
-        rpg_tui_del_eof();
-
-        rpg_tui_print_equip(h);
-        print_selection(h, selection, new_item);
-        print_inventory(h, selection, new_item);
-
-        //rpg_tui_clear_stdin();
-
-        if (done) { break; }
-    }
-
-    return;
+    (void) e;
 }
 
-
 void
-equip_from_inventory(hero_t *  h,
-                     const int selection,
-                     item_t *  new_item)
+squire_skills(void * h,
+                       void * e)
 {
-    // TODO: need to handle 2 hand being exclusive with one
-    //       hand and offhand.
-    if (selection >= 0) {
-        if (h->inventory[selection].slot == NO_ITEM) {
-            // Can't equip something from inventory
-            // that's not there.
-            return;
-        }
-    }
+    hero_t * hero = h;
+    hero_t * enemy = e;
 
-    // Get pointer to selected item, and swap equipped item
-    // with selected item.
-    item_t * s_i;
-    slot_t   s_i_slot;
-
-    if (selection < 0) {
-        if (!new_item) {
-            return;
-        }
-
-        s_i = new_item;
-        s_i_slot = new_item->slot;
-    }
-    else {
-        s_i = &h->inventory[selection];
-        s_i_slot = h->inventory[selection].slot;
-    }
-
-    if (s_i_slot > MAX_ITEMS - 1) {
-        // This isn't an equippable item (It's a potion or NO_ITEM).
-        return;
-    }
-
-    if (s_i_slot == TWO_HAND) {
-        // Equipping a two hand means de-equipping one handers.
-        item_t * old_mh = &h->items[MAIN_HAND];
-        item_t * old_oh = &h->items[OFF_HAND];
-
-        old_mh = add_to_inventory(h, old_mh);
-        old_oh = add_to_inventory(h, old_oh);
-
-        if (old_mh || old_oh) {
-            // Not enough space to dequip main and off hands.
-            return;
-        }
-
-        h->items[MAIN_HAND].slot = NO_ITEM;
-        h->items[OFF_HAND].slot = NO_ITEM;
-    }
-    else if (s_i_slot == MAIN_HAND || s_i_slot == OFF_HAND) {
-        // Equipping one hand means de-equipping two hand.
-        item_t * old_th = &h->items[TWO_HAND];
-
-        old_th = add_to_inventory(h, old_th);
-
-        if (old_th) {
-            // Not enough space to dequip two hand.
-            return;
-        }
-
-        h->items[TWO_HAND].slot = NO_ITEM;
-    }
-
-    item_t old_item = h->items[s_i_slot];
-    size_t have_old_item = h->items[s_i_slot].slot = NO_ITEM;
-
-    h->items[s_i_slot] = *s_i;
-
-    *s_i = old_item;
-
-    if (!have_old_item) {
-        memset(s_i, 0, sizeof(item_t));
-        s_i->slot = NO_ITEM;
-    }
-
-    return;
 }
 
-
 void
-use_from_inventory(hero_t *  h,
-                   const int selection,
-                   item_t *  new_item)
+thief_skills(void * h,
+             void * e)
 {
-    if (selection >= 0) {
-        if (h->inventory[selection].slot == NO_ITEM) {
-            // Can't use something from inventory
-            // that's not there.
-            return;
-        }
-    }
+    hero_t * hero = h;
+    hero_t * enemy = e;
 
-    // Get pointer to selected item.
-    item_t * s_i;
-    slot_t   s_i_slot;
-
-    if (selection < 0) {
-        if (!new_item) {
-            return;
-        }
-
-        s_i = new_item;
-        s_i_slot = new_item->slot;
-    }
-    else {
-        s_i = &h->inventory[selection];
-        s_i_slot = h->inventory[selection].slot;
-    }
-
-    if (s_i_slot != HP_POTION && s_i_slot != MP_POTION) {
-        // This isn't a consumable.
-        return;
-    }
-
-    size_t amnt = 0;
-    switch (s_i_slot) {
-    case HP_POTION:
-        amnt = (size_t) floor(0.5 * ((float) get_max_hp(h)));
-
-        if (restore_hp(h, amnt)) {
-            memset(s_i, 0, sizeof(item_t));
-            s_i->slot = NO_ITEM;
-        }
-
-        break;
-
-    case MP_POTION:
-        amnt = (size_t) floor(0.5 * ((float) get_max_mp(h)));
-
-        if (restore_mp(h, amnt)) {
-            memset(s_i, 0, sizeof(item_t));
-            s_i->slot = NO_ITEM;
-        }
-
-        break;
-
-    default:
-        break;
-    }
-
-    return;
 }
 
-
 void
-print_inventory(const hero_t * h,
-                const int      selected,
-                const item_t * new_item)
+druid_skills(void * h,
+             void * e)
 {
-    char   pretty_name[MAX_NAME_LEN + 1];
+    hero_t * hero = h;
+    hero_t * enemy = e;
 
-    // Print the new item in hand.
-    if (new_item && new_item->slot != NO_ITEM) {
-        size_t row = NEW_ITEM_ROW;
-        size_t col = NEW_ITEM_COL;
-        size_t shift = 1;
-
-        sprintf_item_name(pretty_name, new_item);
-
-        printw("\033[%zu;%zuH New Item", row, col);
-
-        if (-1 == selected) {
-            printw("\033[%zu;%zuH * %s: %s", row + shift, col,
-                   slot_to_str(new_item->slot), pretty_name);
-        }
-        else {
-            printw("\033[%zu;%zuH   %s: %s", row + shift, col,
-                   slot_to_str(new_item->slot), pretty_name);
-        }
-
-    }
-
-    // Print the rest of the inventory.
-    size_t row = INVENTORY_ROW;
-    size_t col = INVENTORY_COL;
-    size_t shift = 1;
-
-    printw("\033[%zu;%zuH Inventory", row, col);
-
-    for (size_t i = 0; i < MAX_INVENTORY; ++i) {
-        const item_t * item = &h->inventory[i];
-
-        sprintf_item_name(pretty_name, item);
-
-        if ((int) i == selected) {
-            printw("\033[%zu;%zuH * %s: %s", row + shift, col,
-                   slot_to_str(item->slot), pretty_name);
-        }
-        else {
-            printw("\033[%zu;%zuH   %s: %s", row + shift, col,
-                   slot_to_str(item->slot), pretty_name);
-        }
-
-        ++shift;
-    }
-
-    fflush(stdout);
-
-    return;
 }
 
-
 void
-print_selection(const hero_t * h,
-                const int      selected,
-                const item_t * new_item)
+cleric_pray(void * h,
+            void * e)
 {
-    size_t row = SELECT_ROW;
-    size_t col = SELECT_COL;
+    hero_t * hero = h;
+    hero_t * enemy = e;
 
-    const item_t * item;
-
-    if (selected < 0) {
-        // New item in hand is selected.
-        item = new_item;
-    }
-    else {
-        // Old item in inventory is selected.
-        item = &h->inventory[selected];
-    }
-
-    printw("\033[%zu;%zuH Item Select", row, col);
-
-    if (!item || item->slot == NO_ITEM) {
-        // Nothing to print.
-        return;
-    }
-
-    char   pretty_name[MAX_NAME_LEN + 1];
-
-    sprintf_item_name(pretty_name, item);
-
-    printw("\033[%zu;%zuH %s: %s", row + 2, col,
-           slot_to_str(item->slot), pretty_name);
-
-    if (item->slot == HP_POTION || item->slot == MP_POTION) {
-        // No other stats to print.
-        return;
-    }
-
-    printw("\033[%zu;%zuH armor: %zu", row + 3, col, item->armor);
-    printw("\033[%zu;%zuH sta:   %zu", row + 4, col, item->attr.sta);
-    printw("\033[%zu;%zuH str:   %zu", row + 5, col, item->attr.str);
-    printw("\033[%zu;%zuH agi:   %zu", row + 6, col, item->attr.agi);
-    printw("\033[%zu;%zuH wis:   %zu", row + 7, col, item->attr.wis);
-    printw("\033[%zu;%zuH spr:   %zu", row + 8, col, item->attr.spr);
-
-    fflush(stdout);
-
-    return;
 }
-
-
-
-void
-sprintf_item_name(char *         name,
-                  const item_t * item)
-{
-    switch (item->tier) {
-    case GOOD:
-        sprintf(name, "%s%s%s", BGRN, item->name, reset);
-        break;
-
-    case RARE:
-        sprintf(name, "%s%s%s", BBLU, item->name, reset);
-        break;
-
-    case EPIC:
-        sprintf(name, "%s%s%s", BMAG, item->name, reset);
-        break;
-
-    case COMMON:
-    default:
-        sprintf(name, "\e[1;0m%s\e[0m", item->name);
-        break;
-    }
-
-    return;
-}
-
 
 stats_t
 get_total_stats(const hero_t * h)
@@ -2189,8 +1645,6 @@ process_debuffs_i(hero_t *   enemy,
         dmg = attack_barrier(amnt, enemy);
         sprintf(prefix, "%s did %zu ", name, dmg);
         sprintf(postfix, " damage to %s\n", enemy->name);
-        //sprintf(msg_buf, "%s did %zu %s damage to %s\n", name, dmg,
-        //        elem_to_str(elem_str, element), enemy->name);
         rpg_tui_print_combat_color_txt(prefix, element, postfix);
         break;
 

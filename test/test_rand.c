@@ -13,7 +13,7 @@ main(int    argc,
 {
     if (argc != 4) { print_usage_and_die(); }
 
-    init_rand();
+    rpg_init_rand();
 
     size_t min = atoi(argv[1]);
     size_t max = atoi(argv[2]);
@@ -21,7 +21,7 @@ main(int    argc,
     size_t result;
 
     for (size_t i = 0; i < num_times; ++i) {
-        result = safer_rand(min, max);
+        result = rpg_safer_rand(min, max);
         printf("%zu\n", result);
     }
 

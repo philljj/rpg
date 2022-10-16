@@ -8,7 +8,7 @@
 // How much to buffer out of /dev/urandom
 #define RAND_BUF_LEN (128)
 
-static uint16_t get_rand_uint16(void);
+static uint16_t rpg_get_rand_uint16(void);
 
 // Random number buffers
 static uint16_t rand_buf[RAND_BUF_LEN];
@@ -16,7 +16,7 @@ static int      urand_fd = 0;
 static size_t   pos = 0;
 
 void
-init_rand(void)
+rpg_init_rand(void)
 {
     urand_fd = open("/dev/urandom", O_RDONLY);
 
@@ -39,8 +39,8 @@ init_rand(void)
 }
 
 size_t
-safer_rand(const size_t min,
-           const size_t max)
+rpg_safer_rand(const size_t min,
+               const size_t max)
 {
     // A simple function to generate a random number between
     // min and max with a decent distribution.
@@ -67,7 +67,7 @@ safer_rand(const size_t min,
     uint16_t value;
 
 again:
-    value = get_rand_uint16();
+    value = rpg_get_rand_uint16();
 
     if (value < shift) {
         goto again;
@@ -79,23 +79,22 @@ again:
 }
 
 static uint16_t
-get_rand_uint16(void)
+rpg_get_rand_uint16(void)
 {
+    ssize_t  n = 0;
+    uint16_t value = 0;
+
     if (pos >= RAND_BUF_LEN) {
-        ssize_t n = read(urand_fd, rand_buf, sizeof(rand_buf));
+        pos = 0;
+        n = read(urand_fd, rand_buf, sizeof(rand_buf));
 
         if (n != sizeof(rand_buf)) {
             fprintf(stderr, "error: read returned %zu bytes, expected %zu\n",
                     n, sizeof(rand_buf));
             exit(1);
         }
-
-        pos = 0;
     }
 
-    uint16_t value = rand_buf[pos];
-
-    ++pos;
-
+    value = rand_buf[pos++];
     return value;
 }

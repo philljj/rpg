@@ -53,7 +53,7 @@ gen_item(const char * name,
     }
     else {
         if (armor_type == RANDOM_A) {
-            armor_type = safer_rand(0, MAX_ARMOR_TYPES);
+            armor_type = rpg_safer_rand(0, MAX_ARMOR_TYPES);
         }
     }
 
@@ -62,9 +62,9 @@ gen_item(const char * name,
         switch (armor_type) {
         case WEAPON:
             // Any of 0-2 slot_t.
-            slot = safer_rand(0, TWO_HAND);
+            slot = rpg_safer_rand(0, TWO_HAND);
             if (weapon_type == RANDOM_W) {
-                weapon_type = safer_rand(0, BLUNT);
+                weapon_type = rpg_safer_rand(0, BLUNT);
             }
             break;
 
@@ -77,13 +77,13 @@ gen_item(const char * name,
         case MAIL:
         case PLATE:
             // Any of 3-8 slot_t.
-            slot = 3 + (safer_rand(0, 5));
+            slot = 3 + (rpg_safer_rand(0, 5));
             break;
 
         case MISC:
         default:
             // Any of 9-10 slot_t.
-            slot = 9 + safer_rand(0, 1);
+            slot = 9 + rpg_safer_rand(0, 1);
             break;
         }
     }
@@ -151,23 +151,23 @@ gen_item(const char * name,
     }
 
     if (level > 0) {
-        item.attr.sta = floor(sta_mult * tier_mult * (float) safer_rand(0, (attr_lvl)));
-        item.attr.str = floor(str_mult * tier_mult * (float) safer_rand(0, (attr_lvl)));
-        item.attr.agi = floor(agi_mult * tier_mult * (float) safer_rand(0, (attr_lvl)));
-        item.attr.wis = floor(wis_mult * tier_mult * (float) safer_rand(0, (attr_lvl)));
-        item.attr.spr = floor(spr_mult * tier_mult * (float) safer_rand(0, (attr_lvl)));
+        item.attr.sta = floor(sta_mult * tier_mult * (float) rpg_safer_rand(0, (attr_lvl)));
+        item.attr.str = floor(str_mult * tier_mult * (float) rpg_safer_rand(0, (attr_lvl)));
+        item.attr.agi = floor(agi_mult * tier_mult * (float) rpg_safer_rand(0, (attr_lvl)));
+        item.attr.wis = floor(wis_mult * tier_mult * (float) rpg_safer_rand(0, (attr_lvl)));
+        item.attr.spr = floor(spr_mult * tier_mult * (float) rpg_safer_rand(0, (attr_lvl)));
     }
 
     if (level > 10) {
-        item.resist.fire = floor(wis_mult * tier_mult * (float) safer_rand(0, (res_lvl)));
-        item.resist.frost = floor(wis_mult * tier_mult * (float) safer_rand(0, (res_lvl)));
-        item.resist.shadow = floor(wis_mult * tier_mult * (float) safer_rand(0, (res_lvl)));
+        item.resist.fire = floor(wis_mult * tier_mult * (float) rpg_safer_rand(0, (res_lvl)));
+        item.resist.frost = floor(wis_mult * tier_mult * (float) rpg_safer_rand(0, (res_lvl)));
+        item.resist.shadow = floor(wis_mult * tier_mult * (float) rpg_safer_rand(0, (res_lvl)));
     }
 
     if (level > 15) {
-        item.power.fire = floor(wis_mult * tier_mult * (float) safer_rand(0, (pow_lvl)));
-        item.power.frost = floor(wis_mult * tier_mult * (float) safer_rand(0, (pow_lvl)));
-        item.power.shadow = floor(wis_mult * tier_mult * (float) safer_rand(0, (pow_lvl)));
+        item.power.fire = floor(wis_mult * tier_mult * (float) rpg_safer_rand(0, (pow_lvl)));
+        item.power.frost = floor(wis_mult * tier_mult * (float) rpg_safer_rand(0, (pow_lvl)));
+        item.power.shadow = floor(wis_mult * tier_mult * (float) rpg_safer_rand(0, (pow_lvl)));
     }
 
     if (level > procs_lvl) {
@@ -181,7 +181,7 @@ gen_item(const char * name,
 tier_t
 gen_item_tier(void)
 {
-    size_t trigger = safer_rand(0, 100);
+    size_t trigger = rpg_safer_rand(0, 100);
 
     if (trigger < 50) {
         return COMMON;
@@ -204,7 +204,7 @@ gen_item_name(char *         name,
               const slot_t   slot,
               const weapon_t weapon_type)
 {
-    size_t j = safer_rand(0, NUM_ITEM_NAMES - 1);
+    size_t j = rpg_safer_rand(0, NUM_ITEM_NAMES - 1);
 
     switch (armor_type) {
     case CLOTH:
@@ -353,7 +353,7 @@ size_t
 gen_item_armor(const size_t level,
                armor_t      armor_type)
 {
-    float base_armor = level + safer_rand(0, level);
+    float base_armor = level + rpg_safer_rand(0, level);
     float multiplier = 1.0;
 
     switch (armor_type) {
@@ -412,7 +412,7 @@ gen_item_set(hero_t *      h,
     }
 
     if (armor_type == RANDOM_A) {
-        i_armor_type = safer_rand(0, PLATE);
+        i_armor_type = rpg_safer_rand(0, PLATE);
     }
     else {
         i_armor_type = armor_type;
@@ -424,57 +424,6 @@ gen_item_set(hero_t *      h,
     h->items[LEGS] = gen_item(0, i_lvl, i_tier, 0, i_armor_type, LEGS, 0);
     h->items[HANDS] = gen_item(0, i_lvl, i_tier, 0, i_armor_type, HANDS, 0);
     h->items[FEET] = gen_item(0, i_lvl, i_tier, 0, i_armor_type, FEET, 0);
-
-    return;
-}
-
-
-void
-spawn_item_drop(hero_t * h)
-{
-    // Anything from mana potions to armor, swords, etc.
-    // Tiers of quality? Rare, epic, legendary?
-    // Tier of quality should be influenced by tier of mob?
-    size_t trigger = safer_rand(0, 100);
-
-    if (trigger < ITEM_DROP_THRESH) {
-        return;
-    }
-
-    // This feels goofy.
-    size_t drop_type = safer_rand(0, 2);
-    item_t new_item;
-
-    switch (drop_type) {
-    case 0:
-        new_item = gen_item(0, h->level, RANDOM_TIER, 0, RANDOM_A, RANDOM_S, RANDOM_W);
-
-        break;
-
-    case 1:
-        memset(&new_item, 0, sizeof(new_item));
-        new_item.slot = HP_POTION;
-        sprintf(new_item.name, "Health Potion");
-        break;
-
-    case 2:
-    default:
-        memset(&new_item, 0, sizeof(new_item));
-        new_item.slot = MP_POTION;
-        sprintf(new_item.name, "Mana Potion");
-        break;
-    }
-    new_item = gen_item(0, h->level, RANDOM_TIER, 0, RANDOM_A, RANDOM_S, RANDOM_W);
-
-    choose_inventory(h, &new_item);
-
-    rpg_tui_move_cursor(1, 1);
-    rpg_tui_del_eof();
-
-    set_hp_mp_bp(h);
-
-    rpg_tui_move_cursor(1, 1);
-    rpg_tui_del_eof();
 
     return;
 }

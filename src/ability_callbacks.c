@@ -41,7 +41,7 @@ weapon_attack_i(hero_t *       hero,
     {
         // Calculate dodge first. If attack misses, nothing left to do.
         float dodge = get_dodge(enemy);
-        float trigger = safer_rand(0, 10000);
+        float trigger = rpg_safer_rand(0, 10000);
 
         if (dodge > trigger) {
             sprintf(msg_buf, "%s attacked %s and missed\n", hero->name,
@@ -61,7 +61,7 @@ weapon_attack_i(hero_t *       hero,
     {
         // Calculate crit. Reusing dodge for now.
         size_t crit = get_dodge(hero);
-        size_t trigger = safer_rand(0, 10000);
+        size_t trigger = rpg_safer_rand(0, 10000);
 
         if (crit > trigger) {
             is_crit = 1;
@@ -184,7 +184,7 @@ spell_attack_cb(void *          h,
     {
         // Calculate crit. Reusing dodge for now.
         size_t crit = get_dodge(hero);
-        size_t trigger = safer_rand(0, 10000);
+        size_t trigger = rpg_safer_rand(0, 10000);
 
         if (crit > trigger) {
             is_crit = 1;

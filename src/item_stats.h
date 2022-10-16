@@ -48,11 +48,11 @@ typedef enum {
 
 // weapon_t is what weapon type the item is.
 typedef enum {
-    PIERCING  = 0,
-    EDGED     = 1,
-    BLUNT     = 2,
-    NO_WEAPON = 98,
-    RANDOM_W  = 99
+    PIERCING   = 0,
+    EDGED      = 1,
+    BLUNT      = 2,
+    NOT_WEAPON = 98,
+    RANDOM_W   = 99
 } weapon_t;
 
 typedef enum {

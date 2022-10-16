@@ -17,14 +17,17 @@
 static size_t row_ = 0;
 static size_t col_ = 0;
 
-// Prompts.
-static const char * spell_prompt = "\n"
-                                   "  choose spell:\n"
-                                   "    f: fire strike\n"
-                                   "    i: ice\n"
-                                   "    s: shadow bolt\n"
-                                   "    u: non-elemental\n";
-
+void
+rpg_tui_init(void)
+{
+    initscr();
+    noecho();
+    cbreak();
+    timeout(-1);
+    start_color();
+    //rpg_tui_clear_screen(); maybe not needed
+    return;
+}
 
 void
 rpg_tui_print_portrait(hero_t *     h,
@@ -154,60 +157,6 @@ rpg_tui_clear_act_prompt(const hero_t * h,
     return;
 }
 
-
-void
-rpg_tui_print_spell_prompt(const hero_t * h,
-                           size_t         i,
-                           size_t         j)
-{
-    mvprintw(i++, j, "%s", spell_prompt);
-
-    if (h->cooldowns[FIREBALL].unlocked)
-        mvprintw(i++, j, "    b: fireball\n");
-
-    if (h->cooldowns[HOLY_SMITE].unlocked)
-        mvprintw(i++, j, "    h: holy smite\n");
-
-    if (h->cooldowns[INSECT_SWARM].unlocked)
-        mvprintw(i++, j, "    n: insect swarm\n");
-
-    return;
-}
-
-
-void
-rpg_tui_print_heal_prompt(const hero_t * h,
-                          size_t         i,
-                          size_t         j)
-{
-    mvprintw(i++, j, "\n");
-    mvprintw(i++, j, "  choose heal spell:\n");
-    mvprintw(i++, j, "    h: Heal I\n");
-
-    if (h->cooldowns[REGEN].unlocked) {
-        mvprintw(i++, j, "    r: regen\n");
-    }
-
-    return;
-}
-
-void
-rpg_tui_clear_heal_prompt(const hero_t * h,
-                          size_t         i,
-                          size_t         j)
-{
-    move(i++, j); clrtoeol();
-    move(i++, j); clrtoeol();
-
-    if (h->cooldowns[REGEN].unlocked)
-        move(i++, j); clrtoeol();
-
-    move(i++, j); clrtoeol();
-
-    return;
-}
-
-
 void
 rpg_tui_print_attack_prompt(const hero_t * h,
                             size_t         i,
@@ -231,34 +180,6 @@ rpg_tui_print_attack_prompt(const hero_t * h,
 
     return;
 }
-
-
-void
-rpg_tui_clear_spell_prompt(const hero_t * h,
-                           size_t         i,
-                           size_t         j)
-{
-    move(i++, j); clrtoeol();
-    move(i++, j); clrtoeol();
-    move(i++, j); clrtoeol();
-    move(i++, j); clrtoeol();
-
-    if (h->cooldowns[FIREBALL].unlocked)
-        move(i++, j); clrtoeol();
-
-    if (h->cooldowns[HOLY_SMITE].unlocked)
-        move(i++, j); clrtoeol();
-
-    if (h->cooldowns[INSECT_SWARM].unlocked)
-        move(i++, j); clrtoeol();
-
-    // Not sure why this one extra needed.
-    move(i++, j); clrtoeol();
-    rpg_tui_del_eof();
-
-    return;
-}
-
 
 void
 rpg_tui_clear_attack_prompt(const hero_t * h,
@@ -389,25 +310,6 @@ rpg_tui_print_combat_color_txt(const char *    prefix,
     return;
 }
 
-void
-rpg_tui_print_inventory_prompt(void)
-{
-    size_t row = INV_PROMPT_ROW;
-    size_t col = INV_PROMPT_COL;
-
-    printw("\033[%zu;%zuH Actions:", row, col);
-
-    printw("\033[%zu;%zuH a: add to inventory", row + 3, col);
-    printw("\033[%zu;%zuH d: throw away selected item", row + 4, col);
-    printw("\033[%zu;%zuH e: equip selected item", row + 5, col);
-    printw("\033[%zu;%zuH u: use selected item", row + 6, col);
-    printw("\033[%zu;%zuH q: quit", row + 7, col);
-
-    fflush(stdout);
-
-    return;
-}
-
 static void
 print_fld(const char * what,
           const size_t amnt)
@@ -497,55 +399,3 @@ rpg_tui_print_hero(hero_t *     h,
 
     return;
 }
-
-
-void
-rpg_tui_print_equip(hero_t * h)
-{
-    printw("name:  %s\n", h->name);
-    printw("level: %zu\n", h->level);
-    printw("hp:    %zu / %zu\n", h->hp, get_max_hp(h));
-    printw("mp:    %zu / %zu\n", h->mp, get_max_mp(h));
-    printw("\n");
-    printw("sta:   %zu\n", h->base.sta);
-    printw("str:   %zu\n", h->base.str);
-    printw("agi:   %zu\n", h->base.agi);
-    printw("wis:   %zu\n", h->base.wis);
-    printw("spr:   %zu\n", h->base.spr);
-    printw("\n");
-    printw("armor: %zu (%.2f%% melee dmg reduction)\n", get_armor(h),
-           100 - (100 * get_mitigation(h)));
-    printw("dodge:      %.2f%%\n", 0.01 * get_dodge(h));
-    printw("\n");
-    printw("attack dmg:\n");
-    printw(" main hand: %.2f\n", get_melee_dmg(h, &h->items[MAIN_HAND], NO_SMEAR));
-    printw("  off hand: %.2f\n", get_melee_dmg(h, &h->items[OFF_HAND], NO_SMEAR));
-    printw("  two hand: %.2f\n", get_melee_dmg(h, &h->items[TWO_HAND], NO_SMEAR));
-    printw("spell dmg:\n");
-    printw("  fire:     %.2f\n", get_spell_dmg(h, FIRE, NO_SMEAR));
-    printw("  frost:    %.2f\n", get_spell_dmg(h, FROST, NO_SMEAR));
-    printw("  shadow:   %.2f\n", get_spell_dmg(h, SHADOW, NO_SMEAR));
-    printw("  non-elem: %.2f\n", get_spell_dmg(h, NON_ELEM, NO_SMEAR));
-
-    printw("\n");
-    printw("equipment\n");
-
-    char pretty_name[MAX_NAME_LEN + 1];
-
-    for (size_t i = 0; i < MAX_ITEMS; ++i) {
-        if (h->items[i].slot == NO_ITEM) {
-            printw("  %s:        \n", slot_to_str(i));
-
-            continue;
-        }
-
-        sprintf_item_name(pretty_name, &h->items[i]);
-        printw("  %s: \e[1;32m%s\e[0m (%s)\n", slot_to_str(i), pretty_name,
-               armor_to_str(h->items[i].armor_type));
-    }
-
-    fflush(stdout);
-
-    return;
-}
-

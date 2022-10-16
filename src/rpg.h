@@ -85,18 +85,11 @@ typedef enum {
  */
 
 typedef enum {
-    SQUIRE          =  0, // cloth - mail, main hand
-    THIEF           =  1, // cloth, leather, main hand
-    BARBARIAN       =  2, // cloth, leather, two hand
-    CHEMIST         =  3, // cloth, leather, main hand, staff
-    SOLDIER         =  4, // mail, shield, one hand
-    PRIEST          =  5, // cloth, leather, restoration
-    DRUID           =  6, // cloth, leather, mail, shapeshifting
-    WIZARD          =  7, // cloth, leather, spell
-    NECROMANCER     =  8, // cloth, leather, mail, shadow life drain
-    KNIGHT          =  9, // plate, shield, one hand, or two hand
-    GEOMANCER       = 10, // mail, weapon imbues
-    RANDOM_HUMANOID = 99
+    SQUIRE  =  0,
+    CHEMIST =  1,
+    THIEF   =  2,
+    CLERIC  =  3,
+    KNIGHT  =  4,
 } job_t;
 
 typedef enum {
@@ -141,6 +134,19 @@ typedef void (*rpg_attack_func_t)(void * hero, void * enemy);
  *                                  const float mp_mult);
  */
 
+struct job_skill_t {
+    job_t             job;       // CLERIC
+    short             color;     // COLOR_CYAN
+    char              name[16];  // "pray"
+    rpg_attack_func_t skill_cb;  // cleric_pray()
+    size_t            job_level; // determines future job/skill unlocks
+    size_t            jp;        // job points
+    size_t            jp_req;    // job points
+    // something to track skill unlocks?
+};
+
+typedef struct job_skill_t job_skill_t;
+
 struct hero_t {
     // Common fields.
     char     name[MAX_NAME_LEN + 1]; // There are Some who call me Tim.
@@ -166,8 +172,13 @@ struct hero_t {
     item_t   inventory[MAX_INVENTORY];
     // Callbacks.
     rpg_attack_func_t attack;
-    rpg_attack_func_t job_pri;
-    rpg_attack_func_t job_sec;
+    rpg_attack_func_t job_primary;
+    rpg_attack_func_t job_secondary;
+    job_skill_t       skill_primary;
+    job_skill_t       skill_second;
+    // reaction callback? counterattack, etc
+    // movement skill
+    // support skill
     /* See callback note above.
      *   rpg_spell_func_t  spell;
      *   rpg_defend_func_t defend;
@@ -193,21 +204,9 @@ size_t get_max_hp(const hero_t * h);
 size_t get_max_mp(const hero_t * h);
 
 // Print functions.
-item_t *     add_to_inventory(hero_t * h, item_t * new_item);
-void         choose_inventory(hero_t * h, item_t * new_item);
-void         equip_from_inventory(hero_t * h, const int selection,
-                                  item_t * new_item);
-void         use_from_inventory(hero_t * h, const int selection,
-                                item_t *  new_item);
-void         print_inventory(const hero_t * h, const int selected,
-                             const item_t * new_item);
-void         print_selection(const hero_t * h, const int selected,
-                             const item_t * new_item);
-void         sprintf_item_name(char * name, const item_t * item);
 const char * slot_to_str(slot_t s);
 const char * armor_to_str(armor_t a);
 const char * mob_to_str(const mob_t m);
-const char * elem_to_str(char * str, const element_t elem);
 
 // Combat functions.
 void   decision_loop(hero_t * hero, hero_t * enemy);
@@ -223,6 +222,12 @@ size_t holy_smite(hero_t * hero, hero_t * enemy);
 size_t shield_bash(hero_t * hero, hero_t * enemy);
 /* stackable druid nature debuff */
 size_t insect_swarm(hero_t * hero, hero_t * enemy);
+
+void chemist_item(void * h, void * e);
+void squire_skills(void * h, void * e);
+void thief_skills(void * h, void * e);
+void druid_skills(void * h, void * e);
+
 
 // Debuffs and cooldowns.
 void   apply_debuff(hero_t * enemy, const char * name,
