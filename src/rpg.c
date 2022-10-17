@@ -188,20 +188,25 @@ rpg_equip_job(hero_t * h)
 int
 rpg_set_job(hero_t * h,
             job_t    job,
-            int      is_primary)
+            int      i)
 {
     if (!h->jobs[job].unlocked)
         return 0;
 
-    if (is_primary) {
-        h->job_primary = &h->jobs[job];
+    h->actjobs[i] = &h->jobs[job];
+
+    if (i == 0) {
         h->sub_type = job;
-    }
-    else {
-        h->job_secondary = &h->jobs[job];
     }
 
     return 1;
+}
+
+void
+thief_steal_gold(void * h,
+                 void * e)
+{
+
 }
 
 void
@@ -213,29 +218,34 @@ rpg_unlock_job(hero_t * h,
 
     switch (job) {
     case SQUIRE:
-        strcpy(h->jobs[job].name, "SQUIRE");
+        strcpy(h->jobs[job].name, "Basic Skill");
         h->jobs[job].color = COLOR_RED;
-        h->jobs[job].skill_cb = squire_skills;
+        h->jobs[job].job_cb = squire_skills;
+
+        strcpy(h->jobs[job].skills[0].name, "Steal Gold");
+        h->jobs[job].skills[0].skill_cb = thief_steal_gold;
+        h->jobs[job].skills[0].unlocked = 1;
+
         break;
     case CHEMIST:
-        strcpy(h->jobs[job].name, "CHEMIST");
+        strcpy(h->jobs[job].name, "Item");
         h->jobs[job].color = COLOR_RED;
-        h->jobs[job].skill_cb = chemist_skills;
+        h->jobs[job].job_cb = chemist_skills;
         break;
     case THIEF:
-        strcpy(h->jobs[job].name, "THIEF");
+        strcpy(h->jobs[job].name, "Steal");
         h->jobs[job].color = COLOR_RED;
-        h->jobs[job].skill_cb = thief_skills;
+        h->jobs[job].job_cb = thief_skills;
         break;
     case CLERIC:
         strcpy(h->jobs[job].name, "CLERIC");
         h->jobs[job].color = COLOR_RED;
-        h->jobs[job].skill_cb = cleric_skills;
+        h->jobs[job].job_cb = cleric_skills;
         break;
     case KNIGHT:
         strcpy(h->jobs[job].name, "KNIGHT");
         h->jobs[job].color = COLOR_RED;
-        h->jobs[job].skill_cb = knight_skills;
+        h->jobs[job].job_cb = knight_skills;
         break;
     }
 
@@ -309,7 +319,7 @@ rpg_roll_player(hero_t *     h,
     }
 
     rpg_unlock_job(h, job);
-    rpg_set_job(h, job, 1);
+    rpg_set_job(h, job, 0);
 
     rpg_tui_clear_screen();
     rpg_equip_job(h);
@@ -879,9 +889,19 @@ decision_loop(hero_t * hero,
             done = 1;
             break;
 
-        case 'u':
-            if (!hero->cooldowns[USE_ITEM].unlocked)
-                break;
+        case 's':
+            if (!hero->actjobs[0] || !hero->actjobs[0]->unlocked)
+                continue;
+
+            hero->actjobs[0]->job_cb(hero, enemy);
+
+            break;
+
+        case 'd':
+            if (!hero->actjobs[1] || !hero->actjobs[1]->unlocked)
+                continue;
+
+            hero->actjobs[1]->job_cb(hero, enemy);
 
             break;
 
@@ -1052,11 +1072,20 @@ squire_skills(void * h,
 
 void
 thief_skills(void * h,
-            void * e)
+             void * e)
 {
     hero_t * hero = h;
     hero_t * enemy = e;
+    char     button = 'a';
+    // steal gold first ability
 
+    for (int i = 0; i < NUM_SKILLS; ++i) {
+        if (hero->jobs[THIEF].skills[i].unlocked) {
+            mvprintw(i, 0, "    %c: %s\n", button + i,
+                     hero->jobs[THIEF].skills[i].name);
+
+        }
+    }
 }
 
 void

@@ -118,11 +118,22 @@ typedef void (*rpg_attack_func_t)(void * hero, void * enemy);
  *                                  const float mp_mult);
  */
 
+#define NUM_SKILLS 4
+
 struct job_skill_t {
-    char              name[16];  // "pray"
-    job_t             job;       // CLERIC
-    short             color;     // COLOR_CYAN
-    rpg_attack_func_t skill_cb;  // cleric_pray()
+    char              name[16];  // "Steal Gold"
+    rpg_attack_func_t skill_cb;  // thief_steal_gold()
+    size_t            unlocked;
+};
+
+typedef struct job_skill_t job_skill_t;
+
+struct job_skillset_t {
+    char              name[16];  // "Steal"
+    job_t             job;       // THIEF
+    short             color;     // COLOR_RED
+    rpg_attack_func_t job_cb;    // steal()
+    job_skill_t       skills[NUM_SKILLS];
     size_t            unlocked;
     size_t            job_level; // determines future job/skill unlocks
     size_t            jp;        // job points
@@ -130,7 +141,7 @@ struct job_skill_t {
     // something to track skill unlocks?
 };
 
-typedef struct job_skill_t job_skill_t;
+typedef struct job_skillset_t job_skillset_t;
 
 struct hero_t {
     // Common fields.
@@ -157,9 +168,8 @@ struct hero_t {
     item_t   inventory[MAX_INVENTORY];
     // Callbacks.
     rpg_attack_func_t attack;
-    job_skill_t *     job_primary;
-    job_skill_t *     job_secondary;
-    job_skill_t       jobs[NUM_JOBS];
+    job_skillset_t *  actjobs[2];
+    job_skillset_t    jobs[NUM_JOBS];
     // reaction callback? counterattack, etc
     // movement skill
     // support skill

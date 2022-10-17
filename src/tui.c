@@ -96,12 +96,12 @@ rpg_tui_print_act_prompt(const hero_t * h,
 {
     mvprintw(i + 0, j, "\n");
     mvprintw(i + 1, j, "  choose action:\n");
-    mvprintw(i + 2, j, "    a: attack\n");
-    mvprintw(i + 3, j, "    s: job primary\n");
-    mvprintw(i + 4, j, "    d: job secondary\n");
+    mvprintw(i + 2, j, "    a: Attack\n");
+    mvprintw(i + 3, j, "    s: %s\n", h->actjobs[0]->name);
 
-    if (h->cooldowns[USE_ITEM].unlocked)
-        mvprintw(i + 6, j, "    u: use item\n");
+    if (h->actjobs[1] && h->actjobs[1]->unlocked) {
+        mvprintw(i + 4, j, "    d: job secondary\n", h->actjobs[1]->name);
+    }
 
     return;
 }
@@ -118,9 +118,6 @@ rpg_tui_clear_act_prompt(const hero_t * h,
     move(i++, j); clrtoeol();
     move(i++, j); clrtoeol();
     move(i++, j); clrtoeol();
-
-    if (h->cooldowns[USE_ITEM].unlocked)
-        move(i++, j); clrtoeol();
 
     // Not sure why this one extra needed.
     move(i++, j); clrtoeol();
