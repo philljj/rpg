@@ -206,7 +206,7 @@ spell_attack_cb(void *          h,
     size_t hp_reduced = final_dmg < enemy->hp ? final_dmg : enemy->hp;
 
     enemy->hp -= hp_reduced;
-    const char * what;
+    const char * what = "spell";
 
     if (is_crit) {
         sprintf(prefix, "%s crit for %zu hp damage\n", what, hp_reduced);
@@ -215,9 +215,9 @@ spell_attack_cb(void *          h,
         sprintf(prefix, "%s hit for %zu hp damage\n", what, hp_reduced);
     }
 
-    sprintf(postfix, "%s hit for %zu hp damage\n", what, hp_reduced);
+    sprintf(postfix, "to %s\n", enemy->name);
 
-    rpg_tui_print_combat_txt(msg_buf);
+    rpg_tui_print_combat_color_txt(prefix, element, postfix);
 
     return hp_reduced;
 }

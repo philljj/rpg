@@ -206,7 +206,9 @@ void
 thief_steal_gold(void * h,
                  void * e)
 {
-
+    (void) h;
+    (void) e;
+    return;
 }
 
 void
@@ -1059,6 +1061,7 @@ chemist_skills(void * h,
     hero_t * hero = h;
 
     (void) e;
+    (void) hero;
 }
 
 void
@@ -1068,6 +1071,8 @@ squire_skills(void * h,
     hero_t * hero = h;
     hero_t * enemy = e;
 
+    (void) hero;
+    (void) enemy;
 }
 
 void
@@ -1086,6 +1091,8 @@ thief_skills(void * h,
 
         }
     }
+
+    (void) enemy;
 }
 
 void
@@ -1095,6 +1102,8 @@ knight_skills(void * h,
     hero_t * hero = h;
     hero_t * enemy = e;
 
+    (void) hero;
+    (void) enemy;
 }
 
 void
@@ -1104,6 +1113,8 @@ cleric_skills(void * h,
     hero_t * hero = h;
     hero_t * enemy = e;
 
+    (void) hero;
+    (void) enemy;
 }
 
 stats_t

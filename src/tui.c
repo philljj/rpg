@@ -37,7 +37,7 @@ rpg_tui_print_portrait(hero_t *     h,
     // i: row
     // j: column
     stats_t stats = get_total_stats(h);
-    mvprintw(i+ 0, j, "");
+    mvprintw(i+ 0, j, " ");
     mvprintw(i+ 1, j, "name:  %s    ",        h->name);
     mvprintw(i+ 2, j, "level: %zu, %s",       h->level, mob_to_str(h->mob_type));
     mvprintw(i+ 3, j, "hp:    %zu / %zu    ", h->hp, get_max_hp(h));
@@ -100,7 +100,7 @@ rpg_tui_print_act_prompt(const hero_t * h,
     mvprintw(i + 3, j, "    s: %s\n", h->actjobs[0]->name);
 
     if (h->actjobs[1] && h->actjobs[1]->unlocked) {
-        mvprintw(i + 4, j, "    d: job secondary\n", h->actjobs[1]->name);
+        mvprintw(i + 4, j, "    d: job secondary %s\n", h->actjobs[1]->name);
     }
 
     return;
@@ -112,6 +112,7 @@ rpg_tui_clear_act_prompt(const hero_t * h,
                          size_t         i,
                          size_t         j)
 {
+    (void) h;
     move(i++, j); clrtoeol();
     move(i++, j); clrtoeol();
     move(i++, j); clrtoeol();
@@ -309,7 +310,6 @@ rpg_tui_print_hero(hero_t *     h,
     }
 
     printw("\n");
-
 
     return;
 }
